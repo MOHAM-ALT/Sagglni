@@ -208,6 +208,8 @@ label input {
 }
 .field-error { border-color: #e53e3e !important; box-shadow: 0 0 0 2px rgba(229,62,62,0.08); }
 .input-error { color: #e53e3e; font-size: 12px; margin-top: 5px; }
+.history-row { border-bottom: 1px solid #eee; padding: 8px 0; }
+.history-row div { margin: 2px 0; font-size: 13px; }
 .modal .status { margin-top: 10px; }
 
 /* Tabs */

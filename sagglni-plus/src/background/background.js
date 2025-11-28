@@ -75,11 +75,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (!tab) return sendResponse({ success: false, error: 'No active tab' });
           chrome.tabs.sendMessage(tab.id, { action: 'autoFill', profileId: request.profileId }, (resp) => {
             // Save application record
+            const formInfoFromContent = resp?.data?.formInfo || {};
             const record = {
               id: `app-${Date.now()}`,
               profileId: request.profileId,
               dateApplied: new Date().toISOString(),
-              formInfo: { websiteUrl: tab.url || '' },
+              formInfo: { websiteUrl: tab.url || '', pageTitle: formInfoFromContent.pageTitle || '', company: formInfoFromContent.company || '' },
               fillResult: {
                 totalFields: resp?.data?.totalFields || 0,
                 filledFields: resp?.data?.filledCount || (resp?.data?.filledFields || 0),
@@ -96,6 +97,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
             sendResponse(resp);
           });
+        });
+        return true;
+      }
+      case 'getApplicationHistory': {
+        chrome.storage.local.get(['applicationHistory'], (res) => sendResponse({ success: true, data: res?.applicationHistory || [] }));
+        return true;
+      }
+      case 'deleteApplicationRecord': {
+        chrome.storage.local.get(['applicationHistory'], (res) => {
+          const history = (res?.applicationHistory || []).filter(r => r.id !== request.recordId);
+          chrome.storage.local.set({ applicationHistory: history }, () => sendResponse({ success: true }));
         });
         return true;
       }

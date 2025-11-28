@@ -2,13 +2,20 @@
 // Sagglni Plus - Content Script
 // Runs on every webpage
 
-import FormAnalyzer from '../analyzer/analyzer.js';
-import DataTransformer from '../transformer/transformer.js';
+let FormAnalyzer;
+let DataTransformer;
+try {
+  FormAnalyzer = typeof window !== 'undefined' && window.FormAnalyzer ? window.FormAnalyzer : require('../analyzer/analyzer.js');
+  DataTransformer = typeof window !== 'undefined' && window.DataTransformer ? window.DataTransformer : require('../transformer/transformer.js');
+} catch (e) {
+  // In test environments, require may not be available; we'll fallback later
+}
 
 console.log('Sagglni Plus Content Script Loaded');
 
 // Listen for messages from popup/background
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Content script received message:', request.action);
   if (request.action === 'autoFill') {
     handleAutoFill(request.profileId)
@@ -19,15 +26,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'analyzeForm') {
     try {
-      const analyzer = new FormAnalyzer();
-      const result = analyzer.analyzeForm();
-      sendResponse({ success: true, ...result });
+      const result = analyzeCurrentForm();
+      // send a lightweight payload
+      sendResponse({ success: true, fieldCount: result.fields.length, summary: result.summary, fields: result.fields });
     } catch (err) {
       sendResponse({ success: false, error: err.message });
     }
     return true;
   }
-});
+  });
+}
 
 /**
  * Fill the active page's form with profile data
@@ -41,19 +49,27 @@ async function handleAutoFill(profileId) {
   if (!profileResp || !profileResp.success) throw new Error('Profile not found');
   const profile = profileResp.data;
   // Analyze current form
-  const analyzer = new FormAnalyzer();
-  const analysis = analyzer.analyzeForm();
+  const analysis = analyzeCurrentForm();
   const fields = analysis.fields;
 
   let filledCount = 0;
   const results = [];
+  let skippedCount = 0;
+  let failedCount = 0;
 
+  const startTime = Date.now();
   for (const field of fields) {
     try {
       const detectedType = field.detectedType;
+      if ((field.detectionConfidence || 0) < 0.5) {
+        results.push({ fieldName: field.name, status: 'skipped', reason: 'low-confidence' });
+        skippedCount++;
+        continue;
+      }
       let value = mapProfileToField(profile, detectedType);
       if (!value) {
-        results.push({ fieldName: field.name, status: 'skipped' });
+        results.push({ fieldName: field.name, status: 'skipped', reason: 'no mapping' });
+        skippedCount++;
         continue;
       }
       // Transform value based on detected type and format
@@ -69,15 +85,30 @@ async function handleAutoFill(profileId) {
         filledCount++;
         results.push({ fieldName: field.name, status: 'filled', value: transformed });
       } else {
-        results.push({ fieldName: field.name, status: 'skipped' });
+        results.push({ fieldName: field.name, status: 'skipped', reason: 'fill failed' });
+        skippedCount++;
       }
     } catch (err) {
       console.warn('Failed field fill: ', err);
       results.push({ fieldName: field.name, status: 'failed', error: err.message });
+      failedCount++;
     }
   }
 
-  return { filledCount, totalFields: fields.length, details: results };
+  const fillDurationMs = Date.now() - startTime;
+  return { filledCount, totalFields: fields.length, skippedCount, failedCount, details: results, formInfo: analysis.formInfo, fillDurationMs };
+}
+
+/** Exposed helper that runs analyzer and returns detailed analysis */
+function analyzeCurrentForm() {
+  const analyzer = new FormAnalyzer();
+  const start = Date.now();
+  const analysis = analyzer.analyzeForm();
+  const durationMs = Date.now() - start;
+  // Attach form info heuristics: attempt to find job title/company on page
+  const pageTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content') || document.title || '';
+  const company = document.querySelector('meta[name="company"]')?.getAttribute('content') || '';
+  return { ...analysis, formInfo: { pageTitle, company }, durationMs };
 }
 
 // Removed unused getAllFormFields; analyzer handles collection
@@ -136,7 +167,19 @@ function fillFieldAdvanced(field, value) {
 }
 
 function dispatchInputEvents(element) {
-  ['input', 'change', 'blur'].forEach(ev => element.dispatchEvent(new Event(ev, { bubbles: true })));
+  ['input', 'change', 'blur'].forEach(ev => {
+    try {
+      // create cross-platform event for browser and jsdom
+      let eventObj;
+      if (typeof Event === 'function') {
+        eventObj = new Event(ev, { bubbles: true });
+      } else {
+        eventObj = document.createEvent('Event');
+        eventObj.initEvent(ev, true, true);
+      }
+      element.dispatchEvent(eventObj);
+    } catch (e) { /* ignore event errors */ }
+  });
 }
 
 // analyzeCurrentForm removed - analyzer used directly where required
@@ -154,4 +197,17 @@ function mapProfileToField(profile, detectedType) {
     case 'dateOfBirth': return pi.dateOfBirth || '';
     default: return null;
   }
+}
+
+// For tests and debugging in content script, attach helpers to window
+if (typeof window !== 'undefined') {
+  window.analyzeCurrentForm = analyzeCurrentForm;
+  // For tests, attach helpers
+  window.fillFieldAdvanced = fillFieldAdvanced;
+  window.mapProfileToField = mapProfileToField;
+}
+
+// CommonJS export for tests
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { analyzeCurrentForm, handleAutoFill, fillFieldAdvanced, mapProfileToField };
 }

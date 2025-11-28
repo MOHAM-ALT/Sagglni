@@ -40,6 +40,8 @@ function setupEventListeners() {
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
   document.getElementById('aiEnabled').addEventListener('change', toggleAISettings);
   document.getElementById('profileSelect').addEventListener('change', enableAutoFill);
+  // history actions
+  document.addEventListener('DOMContentLoaded', () => loadHistory());
   // Edit profile button element (may be disabled initially)
   const editBtn = document.getElementById('editProfileBtn');
   if (editBtn) editBtn.addEventListener('click', editSelectedProfile);
@@ -249,33 +251,57 @@ async function autoFill() {
     showStatus('Please select a profile first!', 'error');
     return;
   }
-  
   showStatus('Filling form...', 'loading');
-  
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  
-  chrome.tabs.sendMessage(tab.id, {
-    action: 'autoFill',
-    profileId: profileId
-  }, response => {
-    if (response && response.success) {
-      showStatus('Form filled successfully! ✅', 'success');
+  chrome.runtime.sendMessage({ action: 'autoFill', profileId }, (resp) => {
+    if (resp && resp.success) {
+      const total = resp.data?.totalFields || 0;
+      const filled = resp.data?.filledCount || resp.data?.filledFields || 0;
+      const skipped = resp.data?.skippedCount || 0;
+      const failed = resp.data?.failedCount || 0;
+      showStatus(`Filled ${filled}/${total} fields ✅` + (skipped ? ` • Skipped: ${skipped}` : '') + (failed ? ` • Failed: ${failed}` : ''), 'success');
+      // Optionally show details in the profile errors area
+      const detail = document.getElementById('profileErrors');
+      if (resp.data?.details && resp.data.details.length > 0) {
+        detail.textContent = resp.data.details.map(d => `${d.fieldName}: ${d.status}${d.reason ? ' (' + d.reason + ')' : ''}${d.error ? ' - ' + d.error : ''}`).join('; ');
+        detail.className = 'status status-info';
+      } else {
+        detail.textContent = '';
+      }
+      loadHistory();
     } else {
-      showStatus('Error filling form', 'error');
+      showStatus(`Error filling form: ${resp?.error || 'unknown'}`, 'error');
     }
   });
 }
 
 function analyzeForm() {
   showStatus('Analyzing form...', 'loading');
-  
-  chrome.tabs.query({active: true, currentWindow: true}, tabs => {
-    chrome.tabs.sendMessage(tabs[0].id, {
-      action: 'analyzeForm'
-    }, response => {
-      if (response) {
-        showStatus(`Found ${response.fieldCount} fields on this page`, 'success');
-      }
+  chrome.runtime.sendMessage({ action: 'analyzeForm' }, (response) => {
+    if (response && response.success) showStatus(`Found ${response.fieldCount} fields on this page`, 'success');
+    else showStatus('Failed to analyze form', 'error');
+  });
+}
+
+function loadHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '<div>Loading history...</div>';
+  chrome.runtime.sendMessage({ action: 'getApplicationHistory' }, (resp) => {
+    if (!resp || !resp.success) { list.innerHTML = '<div>No history</div>'; return; }
+    const data = resp.data || [];
+    if (data.length === 0) { list.innerHTML = '<div>No history</div>'; return; }
+    list.innerHTML = '';
+    data.slice(0, 20).forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      row.innerHTML = `<div><b>${item.formInfo.pageTitle || item.formInfo.websiteUrl}</b></div>
+        <div>${item.dateApplied} - ${item.fillResult.filledFields}/${item.fillResult.totalFields}</div>
+        <div>Profile: ${item.profileId || 'N/A'}</div>
+        <div><button class='btn btn-link' data-id='${item.id}'>Delete</button></div>`;
+      const btn = row.querySelector('button');
+      btn.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: 'deleteApplicationRecord', recordId: item.id }, (r) => { if (r?.success) loadHistory(); });
+      });
+      list.appendChild(row);
     });
   });
 }
