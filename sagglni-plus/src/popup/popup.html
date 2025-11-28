@@ -54,6 +54,38 @@
     </div>
   </div>
 
+  <!-- Profile Import / Create Modal -->
+  <div id="profileModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span id="profileClose" class="modal-close">&times;</span>
+      <h2>Create / Import Profile</h2>
+      <div class="section">
+        <label>Name</label>
+        <input id="profileName" placeholder="Profile Display Name" />
+      </div>
+      <div class="section">
+        <label>First Name</label>
+        <input id="firstName" placeholder="First Name" />
+        <label>Last Name</label>
+        <input id="lastName" placeholder="Last Name" />
+        <label>Email</label>
+        <input id="email" placeholder="email@example.com" />
+        <label>Phone</label>
+        <input id="phone" placeholder="+9665XXXXXXXX" />
+      </div>
+      <div class="section">
+        <label>Paste AI JSON Output (with or without markers)</label>
+        <textarea id="aiJson" rows="8" placeholder="Paste JSON here... (===== START PROFILE DATA ===== ... ===== END PROFILE DATA =====)"></textarea>
+      </div>
+      <div class="section">
+        <button id="parseJsonBtn" class="btn btn-primary">Parse & Validate JSON</button>
+        <button id="saveProfileBtn" class="btn btn-success">Save Profile</button>
+      </div>
+      <div id="profileErrors" class="status"></div>
+    </div>
+  </div>
+
+  <script src="validation.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
