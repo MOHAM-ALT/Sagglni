@@ -7,7 +7,8 @@ describe('FormAnalyzer', () => {
     const dom = new JSDOM(`<!doctype html><html><body><form><input name="emailAddress"></form></body></html>`);
     global.document = dom.window.document;
     const analyzer = new FormAnalyzer();
-    const fields = analyzer.analyzeForm();
+    const result = analyzer.analyzeForm();
+    const fields = result.fields;
     expect(fields.length).toBe(1);
     expect(fields[0].detectedType).toBe('email');
   });
@@ -16,7 +17,8 @@ describe('FormAnalyzer', () => {
     const dom = new JSDOM(`<!doctype html><html><body><form><input name="foo"></form></body></html>`);
     global.document = dom.window.document;
     const analyzer = new FormAnalyzer();
-    const fields = analyzer.analyzeForm();
+    const result = analyzer.analyzeForm();
+    const fields = result.fields;
     expect(fields.length).toBe(1);
     expect(fields[0].detectedType).toBe('unknown');
   });

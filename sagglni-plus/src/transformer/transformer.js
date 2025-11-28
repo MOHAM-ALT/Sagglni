@@ -107,6 +107,20 @@ class DataTransformer {
   }
 }
 
+// Export for CommonJS environments
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = DataTransformer;
 }
+
+// Export default for ES Module environments (background service worker with type: module)
+if (typeof window === 'undefined' && typeof importScripts === 'undefined') {
+  // Not a browser page; Node or bundler
+} else {
+  try {
+    // In browser content scripts, this will be available as a global class
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+// No ES module export to keep compatibility with Node/Jest tests and content scripts

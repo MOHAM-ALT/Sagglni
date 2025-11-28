@@ -9,16 +9,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadProfiles() {
-  const { profiles } = await chrome.storage.local.get('profiles');
   const select = document.getElementById('profileSelect');
-  
-  if (profiles && profiles.length > 0) {
-    profiles.forEach(profile => {
-      const option = document.createElement('option');
-      option.value = profile.id;
-      option.textContent = profile.name;
-      select.appendChild(option);
+  select.innerHTML = '<option value="">Select Profile...</option>';
+  try {
+    chrome.runtime.sendMessage({ action: 'getAllProfiles' }, (resp) => {
+      if (!resp || !resp.success) return;
+      const profiles = resp.data || [];
+      profiles.forEach(profile => {
+        const option = document.createElement('option');
+        option.value = profile.id;
+        option.textContent = profile.name;
+        select.appendChild(option);
+      });
     });
+  } catch (err) {
+    console.error('Failed to load profiles', err);
   }
 }
 
@@ -69,11 +74,34 @@ function analyzeForm() {
 }
 
 function createNewProfile() {
-  const name = prompt('Enter profile name:');
-  if (name) {
-    showStatus('Creating profile...', 'loading');
-    // TODO: Implement profile creation
-  }
+  // Simple profile creation dialog for MVP
+  const name = prompt('Enter profile name (e.g., My Career Profile):');
+  if (!name) return;
+  const firstName = prompt('First Name:') || '';
+  const lastName = prompt('Last Name:') || '';
+  const email = prompt('Email:') || '';
+  const phone = prompt('Phone (include country code):') || '';
+  const profile = {
+    name,
+    data: {
+      personalInfo: {
+        firstName,
+        lastName,
+        email,
+        phone
+      }
+    }
+  };
+  showStatus('Saving profile...', 'loading');
+  chrome.runtime.sendMessage({ action: 'saveProfile', profile }, (resp) => {
+    if (resp?.success) {
+      showStatus('Profile saved ✅', 'success');
+      loadProfiles();
+    } else {
+      showStatus('Failed to save profile', 'error');
+      console.error(resp?.error);
+    }
+  });
 }
 
 function openSettings() {
