@@ -34,6 +34,41 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
     }
     return true;
   }
+  if (request.action === 'analyzeFormWithAI') {
+    try {
+      const analyzer = new FormAnalyzer();
+      const analysis = analyzer.analyzeForm();
+      const fields = analysis.fields;
+      // If any field has low confidence, call background AI process
+      const needAI = fields.some(f => (f.detectionConfidence || 0) < 0.7);
+      if (!needAI) return sendResponse({ success: true, data: analysis, aiUsed: false });
+      // Build form HTML (compile outer HTML of forms)
+      const form = document.querySelector('form');
+      const formHtml = form ? form.outerHTML : document.documentElement.outerHTML;
+      // Send to background for AI analysis
+      chrome.runtime.sendMessage({ action: 'analyzeFormWithAI', formHtml, fields }, (resp) => {
+        if (!resp || !resp.success) return sendResponse({ success: true, data: analysis, aiUsed: false });
+        const aiResult = resp.data || { suggestions: [] };
+        // Merge suggestions
+        const mergedFields = fields.map((f, idx) => {
+          const aiSuggestion = (aiResult.suggestions || []).find(s => s.index === idx || s.name === f.name);
+          if (!aiSuggestion) return f;
+          // increase confidence if AI suggests same type, otherwise compare
+          const aiConf = aiSuggestion.confidence || 0;
+          const currentConf = f.detectionConfidence || 0;
+          if (aiConf > currentConf) {
+            return Object.assign({}, f, { aiSuggested: aiSuggestion.suggestedType, aiConfidence: aiConf, detectedType: aiSuggestion.suggestedType, detectionConfidence: Math.min(1.0, aiConf + currentConf / 2) });
+          }
+          return f;
+        });
+        const merged = { fields: mergedFields, summary: { totalFields: mergedFields.length, detections: mergedFields.reduce((acc, f) => { acc[f.detectedType] = (acc[f.detectedType] || 0) + 1; return acc; }, {}) }, aiUsed: true };
+        return sendResponse({ success: true, data: merged });
+      });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+    return true;
+  }
   });
 }
 

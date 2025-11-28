@@ -59,6 +59,48 @@ class AITransformer {
       return null;
     }
   }
+
+  // Analyze a page's form HTML and ask the AI to make field suggestions
+  // `formHtml` is the outer HTML of the form and `fields` is an array of field metadata.
+  // Returns: { suggestions: [{ index, name, suggestedType, confidence }], raw: <aiResponse> }
+  async analyzeFormWithAI(formHtml, fields = []) {
+    // Build a JSON-friendly request to the LLM
+    const prompt = `You are given a form HTML. For each input field in the form, return a JSON array of suggestions of the form { index, name, suggestedType, confidence } where confidence is between 0 and 1. HTML:\n${formHtml}\nFields: ${JSON.stringify(fields.map(f => ({ name: f.name, id: f.id || null, placeholder: f.placeholder || '' })))}\nReturn a JSON string only.`;
+    try {
+      if (this.type === 'ollama') {
+        const base = `http://localhost:${this.port}`;
+        // read models if available
+        const modelResp = await fetch(`${base}/v1/models`).then(r => r.json()).catch(() => null);
+        const model = modelResp && modelResp.length ? modelResp[0].name : 'ollama';
+        const url = `${base}/v1/completions`;
+        const body = { model, input: prompt };
+        const resp = await postJson(url, body, this.timeout);
+        // try to extract JSON from resp text (common LLM response may include text)
+        const txt = resp?.choices?.[0]?.output_text || resp?.output || JSON.stringify(resp);
+        // Attempt to parse a JSON array from txt
+        const match = txt.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+        if (match) {
+          try { return { suggestions: JSON.parse(match[0]), raw: resp }; } catch (e) { return { suggestions: [], raw: resp }; }
+        }
+        return { suggestions: [], raw: resp };
+      }
+      if (this.type === 'lmstudio') {
+        const base = `http://localhost:${this.port}`;
+        const url = `${base}/api/generate`;
+        const body = { prompt };
+        const resp = await postJson(url, body, this.timeout);
+        const txt = resp?.content || resp?.outputs?.[0];
+        const match = txt && (txt.match(/\{[\s\S]*\}|\[[\s\S]*\]/));
+        if (match) {
+          try { return { suggestions: JSON.parse(match[0]), raw: resp }; } catch (e) { return { suggestions: [], raw: resp }; }
+        }
+        return { suggestions: [], raw: resp };
+      }
+      return { suggestions: [], raw: null };
+    } catch (err) {
+      return { suggestions: [], raw: null };
+    }
+  }
 }
 
 module.exports = AITransformer;

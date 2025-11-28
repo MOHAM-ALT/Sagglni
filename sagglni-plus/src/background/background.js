@@ -69,6 +69,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true;
       }
+      case 'analyzeFormWithAI': {
+        // receive { formHtml, fields }
+        const { formHtml, fields } = request || {};
+        (async () => {
+          try {
+            const AIClass = require('../transformer/ai-transformer');
+            const aiClient = new AIClass({ type: 'ollama', port: (request.port || 11434) });
+            const resp = await aiClient.analyzeFormWithAI(formHtml, fields);
+            sendResponse({ success: true, data: resp });
+          } catch (err) {
+            sendResponse({ success: false, error: err.message });
+          }
+        })();
+        return true;
+      }
       case 'autoFill': {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           const tab = tabs[0];
