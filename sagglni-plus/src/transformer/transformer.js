@@ -108,9 +108,12 @@ class DataTransformer {
 }
 
 // Export for CommonJS environments
+// Expose for different module systems and as a browser global
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = DataTransformer;
 }
+try { exports.default = DataTransformer; } catch (e) {}
+if (typeof window !== 'undefined') window.DataTransformer = DataTransformer;
 
 // Export default for ES Module environments (background service worker with type: module)
 if (typeof window === 'undefined' && typeof importScripts === 'undefined') {

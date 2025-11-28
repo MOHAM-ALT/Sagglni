@@ -24,31 +24,31 @@
   ],
 
   "action": {
-    "default_popup": "src/popup/popup.html",
+    "default_popup": "dist/popup.html",
     "default_icon": "assets/icons/icon-128.png",
     "default_title": "Sagglni Plus - Auto Form Filler"
   },
 
   "background": {
-    "service_worker": "src/background/background.js"
+    "service_worker": "dist/background.bundle.js"
   },
 
   "options_ui": {
-    "page": "src/popup/settings.html",
+    "page": "dist/settings.html",
     "open_in_tab": false
   },
 
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/analyzer/analyzer.js", "src/transformer/transformer.js", "src/content/content.js"],
+      "js": ["dist/content.bundle.js"],
       "run_at": "document_end"
     }
   ],
 
   "web_accessible_resources": [
     {
-      "resources": ["src/analyzer/*", "src/transformer/*"],
+      "resources": ["dist/content.bundle.js","dist/popup.bundle.js","assets/*"],
       "matches": ["<all_urls>"]
     }
   ]

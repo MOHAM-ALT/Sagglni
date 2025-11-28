@@ -2,6 +2,9 @@
 // Sagglni Plus - Content Script
 // Runs on every webpage
 
+import FormAnalyzer from '../analyzer/analyzer.js';
+import DataTransformer from '../transformer/transformer.js';
+
 console.log('Sagglni Plus Content Script Loaded');
 
 // Listen for messages from popup/background

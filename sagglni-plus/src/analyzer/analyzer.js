@@ -150,6 +150,12 @@ class FormAnalyzer {
 }
 
 // Export for use
+// Export for CommonJS and ES Module environments, and attach to global for content scripts
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = FormAnalyzer;
 }
+try {
+  // ES module default export
+  exports.default = FormAnalyzer;
+} catch (e) {}
+if (typeof window !== 'undefined') window.FormAnalyzer = FormAnalyzer;
