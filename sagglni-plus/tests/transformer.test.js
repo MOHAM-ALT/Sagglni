@@ -11,4 +11,16 @@ describe('DataTransformer', () => {
     const dt = new DataTransformer();
     expect(dt.transformEmail('Test@Example.COM')).toBe('test@example.com');
   });
+
+  test('transformData uses AI transformer when enabled and returns ai output', async () => {
+    const dt = new DataTransformer();
+    dt.setAIEnabled(true);
+    dt.setAIPort(11434);
+    // mock fetch for AI transformer
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ name: 'test-model' }] })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ choices: [{ output_text: '+966555' }] }) });
+    const out = await dt.transformData('555', 'phone');
+    expect(out).toBe('+966555');
+  });
 });

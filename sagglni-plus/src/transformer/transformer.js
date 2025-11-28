@@ -1,6 +1,11 @@
 // Data Transformer - Converts data to match form requirements
 // Integrates with local LLM
 
+let AITransformer;
+try {
+  AITransformer = require('./ai-transformer');
+} catch (e) { AITransformer = undefined; }
+
 class DataTransformer {
   constructor(aiPort = '11434') {
     this.aiPort = aiPort;
@@ -22,24 +27,12 @@ class DataTransformer {
   }
   
   async transformWithAI(data, fieldType, formContext) {
-    const prompt = `Transform the following data for a ${fieldType} field:\nData: ${data}\nContext: ${JSON.stringify(formContext)}\n\nRespond with only the transformed value, nothing else.`;
-    
-    try {
-      const response = await fetch(`http://localhost:${this.aiPort}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'neural-chat',
-          prompt: prompt,
-          stream: false
-        })
-      });
-      
-      const result = await response.json();
-      return result.response?.trim() || data;
-    } catch (error) {
-      throw new Error(`AI API error: ${error.message}`);
-    }
+    if (!AITransformer) throw new Error('AITransformer not available');
+    const ai = new AITransformer({ type: 'ollama', port: this.aiPort });
+    const fmt = (formContext && formContext.detectedFormat) ? formContext.detectedFormat : null;
+    const result = await ai.transform(data, fieldType, fmt);
+    if (!result) throw new Error('AI returned no result');
+    return result;
   }
   
   transformWithRules(data, fieldType) {

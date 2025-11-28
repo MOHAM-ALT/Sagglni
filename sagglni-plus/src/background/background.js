@@ -1,5 +1,6 @@
 // Sagglni Plus - Background Service Worker (module)
 console.log('Sagglni Plus Background Service Worker Loaded');
+const { detectAIEndpoints, checkAIHealth } = require('./ai-connector');
 
 /** Initialize default data on installation */
 chrome.runtime.onInstalled.addListener(() => {
@@ -9,13 +10,25 @@ chrome.runtime.onInstalled.addListener(() => {
     if (!res.profiles) chrome.storage.local.set({ profiles: [] });
     if (!res.settings) chrome.storage.local.set({ settings: { aiEnabled: false, aiPort: 11434, autoDetectAI: true } });
   });
+  // Attempt to auto-detect local AI backends and update settings if found
+  (async () => {
+    try {
+      const det = await detectAIEndpoints();
+      const available = det.find(d => d.healthy);
+      if (available) {
+        chrome.storage.local.get(['settings'], (res) => {
+          const s = Object.assign({}, res?.settings || {}, { aiEnabled: true, aiPort: available.port, aiType: available.type });
+          chrome.storage.local.set({ settings: s });
+        });
+      }
+    } catch (err) { /* ignore detection errors */ }
+  })();
 });
 
 /**
  * Message router - handles requests from popup and content scripts
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Background received:', request);
   try {
     switch (request.action) {
       case 'saveProfile': {
@@ -30,19 +43,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             profiles.push(Object.assign({ id: request.profile.id || `profile-${Date.now()}`, createdAt: now, updatedAt: now, version: '1.0' }, request.profile));
           }
           chrome.storage.local.set({ profiles }, () => sendResponse({ success: true, data: request.profile }));
-        });
-        return true;
-      }
-      case 'getProfile': {
-        chrome.storage.local.get(['profiles'], (res) => {
-          const profile = (res?.profiles || []).find(p => p.id === request.profileId) || null;
-          sendResponse({ success: true, data: profile });
-        });
-        return true;
-      }
-      case 'getAllProfiles': {
-        chrome.storage.local.get(['profiles'], (res) => {
-          sendResponse({ success: true, data: res?.profiles || [] });
         });
         return true;
       }
@@ -132,9 +132,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.local.get(['settings'], async (res) => {
           const s = res?.settings || {};
           if (!s.aiEnabled) return sendResponse({ success: false, error: 'AI disabled' });
-          // perform a health check using helper
-          const health = await checkAIHealth(s.aiPort || 11434);
-          sendResponse({ success: health, data: { aiAvailable: health } });
+          // perform a health check using ai-connector
+          const health = await checkAIHealth({ type: s.aiType || 'ollama', port: s.aiPort });
+          sendResponse({ success: true, data: { aiAvailable: !!health.healthy, type: health.type, port: health.port, endpoint: health.endpoint } });
         });
         return true;
       }
@@ -148,16 +148,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-/**
- * Simple AI health check (calls local LLM endpoint)
- * @param {number|string} port
- */
-async function checkAIHealth(port = 11434) {
-  try {
-    const url = `http://localhost:${port}/api/tags`;
-    const res = await fetch(url, { method: 'GET' });
-    return res.ok;
-  } catch (err) {
-    return false;
-  }
-}
+// AI health / detection helpers are exported from ./ai-connector.js

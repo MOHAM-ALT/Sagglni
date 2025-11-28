@@ -41,7 +41,17 @@
           <input type="checkbox" id="aiEnabled"> Enable AI (Local LLM)
         </label>
         <div id="aiSettings" style="display:none;">
-          <input type="text" id="aiPort" placeholder="Local AI Port (e.g., 11434)" value="11434">
+          <label>AI Engine</label>
+          <select id="aiType">
+            <option value="ollama">Ollama</option>
+            <option value="lmstudio">LM Studio</option>
+          </select>
+          <label>Port</label>
+          <input type="number" id="aiPort" placeholder="11434" value="11434">
+          <div style="display:flex; gap:6px; margin-top:6px;">
+            <button id="testAIBtn" class="btn btn-info">Test AI</button>
+            <div id="aiStatus" class="status" style="flex:1; display:inline-block;">Status unknown</div>
+          </div>
         </div>
       </div>
 
@@ -157,10 +167,16 @@
 
           <div class="section modal-actions">
             <button id="parseJsonBtn" type="button" class="btn btn-primary">Parse & Validate JSON</button>
+            <button id="generatePromptBtn" type="button" class="btn btn-info">Generate Prompt</button>
+            <button id="copyPromptBtn" type="button" class="btn btn-success">Copy Prompt</button>
             <button id="saveProfileBtn" type="button" class="btn btn-success">Save Profile</button>
             <button id="cancelProfileBtn" type="button" class="btn btn-secondary">Cancel</button>
           </div>
           <div id="profileErrors" class="status"></div>
+          <div class="section">
+            <label>Generated Interview Prompt</label>
+            <textarea id="generatedPrompt" rows="6" placeholder="Generated prompt appears here..."></textarea>
+          </div>
         </form>
       </div>
 

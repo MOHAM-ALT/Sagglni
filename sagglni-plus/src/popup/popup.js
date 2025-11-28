@@ -2,6 +2,7 @@
 // Sagglni Plus - Popup Script
 
 console.log('Sagglni Plus Popup Loaded');
+const { buildInterviewPrompt } = require('./prompt-generator');
 
 // Load profiles on startup
 document.addEventListener('DOMContentLoaded', async () => {
@@ -34,11 +35,17 @@ function setupEventListeners() {
   document.getElementById('analyzeBtn').addEventListener('click', analyzeForm);
   document.getElementById('newProfileBtn').addEventListener('click', createNewProfile);
   document.getElementById('parseJsonBtn').addEventListener('click', parseProfileJson);
+    const genBtn = document.getElementById('generatePromptBtn');
+    if (genBtn) genBtn.addEventListener('click', generatePrompt);
+    const copyBtn = document.getElementById('copyPromptBtn');
+    if (copyBtn) copyBtn.addEventListener('click', copyPromptToClipboard);
   document.getElementById('saveProfileBtn').addEventListener('click', saveProfileFromModal);
   document.getElementById('cancelProfileBtn').addEventListener('click', closeProfileModal);
   document.getElementById('profileClose').addEventListener('click', closeProfileModal);
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
   document.getElementById('aiEnabled').addEventListener('change', toggleAISettings);
+  const testBtn = document.getElementById('testAIBtn');
+  if (testBtn) testBtn.addEventListener('click', testAIConnection);
   document.getElementById('profileSelect').addEventListener('change', enableAutoFill);
   // history actions
   document.addEventListener('DOMContentLoaded', () => loadHistory());
@@ -377,32 +384,44 @@ function fillModalFieldsFromObject(profile) {
   openProfileModal();
 }
 
+/* parseProfileJson moved below (updated implementation) */
+// prompt generator already loaded above
+
+function generatePrompt() {
+  const profile = gatherModalProfileData();
+  const prompt = buildInterviewPrompt(profile);
+  document.getElementById('generatedPrompt').value = prompt;
+}
+
+function copyPromptToClipboard() {
+  const t = document.getElementById('generatedPrompt');
+  if (!t) return;
+  t.select();
+  document.execCommand('copy');
+  showStatus('Prompt copied to clipboard', 'success');
+}
+
 async function parseProfileJson() {
+  // Lightweight parse handler. Uses existing helpers.
   const raw = document.getElementById('aiJson').value;
   const errorsDiv = document.getElementById('profileErrors');
   errorsDiv.textContent = '';
   try {
     const parsed = parseProfileJSON(raw);
-    // Accept both top-level profile object or wrapper { data: {...} }
     const profile = parsed.id && parsed.data ? parsed : { data: parsed };
-    // Use AJV schema validator (if available)
     const sv = validateProfileWithSchema(profile);
     if (!sv.isValid) {
       const messages = sv.errors || [];
-      // if ajvErrors exist, include details
       if (sv.ajvErrors && sv.ajvErrors.length > 0) {
         const ajvMsgs = sv.ajvErrors.map(e => `${e.instancePath.replace(/\//g, '.') || e.params.missingProperty || 'field'} ${e.message}`);
         messages.push(...ajvMsgs);
-        // show inline errors per field
         showAjvErrors(sv.ajvErrors);
       }
       errorsDiv.textContent = messages.join('; ');
       errorsDiv.className = 'status status-error';
       return;
     }
-    // Fill modal fields
     fillModalFieldsFromObject(profile);
-    // clear editing id
     const modal = document.getElementById('profileModal');
     if (modal?.dataset?.editingId) delete modal.dataset.editingId;
     errorsDiv.textContent = 'Parsed successfully. You may edit values and Save.';
@@ -417,18 +436,15 @@ async function saveProfileFromModal() {
   const collected = gatherModalProfileData();
   const name = collected.name || 'My Profile';
   const data = collected.data || {};
-
   const validation = validateProfileWithSchema({ name, data });
   const errorsDiv = document.getElementById('profileErrors');
   errorsDiv.textContent = '';
   if (!validation.isValid) {
     errorsDiv.className = 'status status-error';
     errorsDiv.textContent = validation.errors.join('; ');
-    // show inline ajv errors
     if (validation.ajvErrors && validation.ajvErrors.length > 0) showAjvErrors(validation.ajvErrors);
     return;
   }
-
   const profile = { name, data };
   const modal = document.getElementById('profileModal');
   const editingId = modal?.dataset?.editingId;
@@ -536,6 +552,28 @@ function toggleAISettings() {
   } else {
     aiSettings.style.display = 'none';
   }
+}
+
+function testAIConnection() {
+  const aiType = document.getElementById('aiType').value;
+  const aiPort = parseInt(document.getElementById('aiPort').value) || 11434;
+  const statusDiv = document.getElementById('aiStatus');
+  statusDiv.textContent = 'Testing...';
+  chrome.runtime.sendMessage({ action: 'testAI' }, (resp) => {
+    if (!resp || !resp.success) {
+      statusDiv.textContent = 'AI not available';
+      statusDiv.className = 'status status-error';
+      return;
+    }
+    const d = resp.data || {};
+    if (d.aiAvailable) {
+      statusDiv.textContent = `${d.type || aiType} @ ${d.port || aiPort} OK`;
+      statusDiv.className = 'status status-success';
+    } else {
+      statusDiv.textContent = 'AI not available';
+      statusDiv.className = 'status status-error';
+    }
+  });
 }
 
 function enableAutoFill() {
