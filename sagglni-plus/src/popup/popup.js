@@ -1,4 +1,4 @@
-/* global parseProfileJSON, validateProfile, validateProfileWithSchema */
+/* global parseProfileJSON, validateProfileWithSchema */
 // Sagglni Plus - Popup Script
 
 console.log('Sagglni Plus Popup Loaded');
@@ -79,6 +79,95 @@ function setupProfileModalUI() {
       ev.preventDefault();
       addSkillTag('soft', softInput.value.trim());
       softInput.value = '';
+    }
+  });
+
+  // inline validation helpers will be defined outside
+}
+
+/* Inline field error handling */
+function clearFieldError(selector) {
+  try {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.classList.remove('field-error');
+    const next = el.nextElementSibling;
+    if (next && next.classList && next.classList.contains('input-error')) next.remove();
+  } catch (e) { /* ignore DOM errors when elements are not found */ }
+}
+
+function setFieldError(selector, message) {
+  try {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    clearFieldError(selector);
+    el.classList.add('field-error');
+    const span = document.createElement('div');
+    span.className = 'input-error';
+    span.textContent = message;
+    span.style.color = '#e53e3e';
+    span.style.fontSize = '12px';
+    span.style.marginTop = '4px';
+    el.parentNode.insertBefore(span, el.nextSibling);
+  } catch (e) { /* ignore DOM errors when inserting error nodes */ }
+}
+
+function clearModalFieldErrors() {
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+  document.querySelectorAll('.input-error').forEach(el => el.remove());
+}
+
+function mapAjvErrorToSelector(err) {
+  if (!err || !err.instancePath) return null;
+  const path = err.instancePath.replace(/^\//, '');
+  const parts = path.split('/');
+  if (parts[0] === 'data' && parts[1] === 'personalInfo') {
+    const field = parts[2];
+    switch (field) {
+      case 'firstName': return '#firstName';
+      case 'lastName': return '#lastName';
+      case 'email': return '#email';
+      case 'phone': return '#phone';
+      case 'dateOfBirth': return '#dateOfBirth';
+      case 'gender': return '#gender';
+      case 'nationality': return '#nationality';
+      case 'city': return '#city';
+      case 'postalCode': return '#postalCode';
+      default: return null;
+    }
+  }
+  if (parts[0] === 'data' && parts[1] === 'education') {
+    const idx = parseInt(parts[2], 10);
+    const field = parts[3];
+    const base = '#educationList .education-item';
+    switch (field) {
+      case 'degree': return `${base}:nth-child(${idx + 1}) .edu-degree`;
+      case 'field': return `${base}:nth-child(${idx + 1}) .edu-field`;
+      case 'university': return `${base}:nth-child(${idx + 1}) .edu-university`;
+      default: return `${base}:nth-child(${idx + 1})`;
+    }
+  }
+  if (parts[0] === 'data' && parts[1] === 'experience') {
+    const idx = parseInt(parts[2], 10);
+    const field = parts[3];
+    const base = '#experienceList .experience-item';
+    switch (field) {
+      case 'jobTitle': return `${base}:nth-child(${idx + 1}) .exp-jobTitle`;
+      case 'company': return `${base}:nth-child(${idx + 1}) .exp-company`;
+      default: return `${base}:nth-child(${idx + 1})`;
+    }
+  }
+  return null;
+}
+
+function showAjvErrors(ajvErrors) {
+  clearModalFieldErrors();
+  if (!Array.isArray(ajvErrors)) return;
+  ajvErrors.forEach(err => {
+    const sel = mapAjvErrorToSelector(err);
+    const message = `${(err.instancePath || '').replace(/\//g, '.') || (err.params && err.params.missingProperty) || 'field'} ${err.message}`;
+    if (sel) {
+      setFieldError(sel, message);
     }
   });
 }
@@ -278,6 +367,8 @@ async function parseProfileJson() {
       if (sv.ajvErrors && sv.ajvErrors.length > 0) {
         const ajvMsgs = sv.ajvErrors.map(e => `${e.instancePath.replace(/\//g, '.') || e.params.missingProperty || 'field'} ${e.message}`);
         messages.push(...ajvMsgs);
+        // show inline errors per field
+        showAjvErrors(sv.ajvErrors);
       }
       errorsDiv.textContent = messages.join('; ');
       errorsDiv.className = 'status status-error';
@@ -307,6 +398,8 @@ async function saveProfileFromModal() {
   if (!validation.isValid) {
     errorsDiv.className = 'status status-error';
     errorsDiv.textContent = validation.errors.join('; ');
+    // show inline ajv errors
+    if (validation.ajvErrors && validation.ajvErrors.length > 0) showAjvErrors(validation.ajvErrors);
     return;
   }
 

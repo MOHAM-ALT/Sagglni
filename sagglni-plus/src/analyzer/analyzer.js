@@ -157,5 +157,5 @@ if (typeof module !== 'undefined' && module.exports) {
 try {
   // ES module default export
   exports.default = FormAnalyzer;
-} catch (e) {}
+} catch (e) { /* ignore optional export failure for non-module loaders */ }
 if (typeof window !== 'undefined') window.FormAnalyzer = FormAnalyzer;

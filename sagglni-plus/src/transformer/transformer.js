@@ -112,7 +112,7 @@ class DataTransformer {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = DataTransformer;
 }
-try { exports.default = DataTransformer; } catch (e) {}
+try { exports.default = DataTransformer; } catch (e) { /* ignore for non-CommonJS environments */ }
 if (typeof window !== 'undefined') window.DataTransformer = DataTransformer;
 
 // Export default for ES Module environments (background service worker with type: module)

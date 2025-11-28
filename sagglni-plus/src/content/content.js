@@ -1,4 +1,4 @@
-/* global FormAnalyzer, DataTransformer */
+// Sagglni Plus - Content Script
 // Sagglni Plus - Content Script
 // Runs on every webpage
 
