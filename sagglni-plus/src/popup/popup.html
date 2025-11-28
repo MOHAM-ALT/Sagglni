@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sagglni Plus</title>
+  <link rel="stylesheet" href="../../assets/css/popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Sagglni Plus</h1>
+      <p>Auto Form Filler</p>
+    </div>
+
+    <div class="main-content">
+      <!-- Profiles Section -->
+      <div class="section">
+        <h2>Your Profiles</h2>
+        <select id="profileSelect">
+          <option value="">Select Profile...</option>
+        </select>
+        <button id="newProfileBtn" class="btn btn-primary">+ New Profile</button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="section">
+        <button id="autoFillBtn" class="btn btn-success" disabled>
+          🚀 Auto Fill Form
+        </button>
+        <button id="analyzeBtn" class="btn btn-info">
+          🔍 Analyze Form
+        </button>
+      </div>
+
+      <!-- Settings -->
+      <div class="section">
+        <h3>Settings</h3>
+        <label>
+          <input type="checkbox" id="aiEnabled"> Enable AI (Local LLM)
+        </label>
+        <div id="aiSettings" style="display:none;">
+          <input type="text" id="aiPort" placeholder="Local AI Port (e.g., 11434)" value="11434">
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="footer">
+      <button id="settingsBtn" class="btn btn-small">⚙️ Settings</button>
+      <button id="helpBtn" class="btn btn-small">❓ Help</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

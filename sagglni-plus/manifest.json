@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Sagglni Plus - Auto Form Filler",
+  "version": "1.0.0",
+  "description": "Smart Chrome Extension for automatic form filling with Local AI support",
+  "author": "Mohammed Al-Qahtani",
+  
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "webNavigation"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": "assets/icons/icon-128.png",
+    "default_title": "Sagglni Plus - Auto Form Filler"
+  },
+
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content.js"],
+      "run_at": "document_end"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["src/analyzer/*", "src/transformer/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
