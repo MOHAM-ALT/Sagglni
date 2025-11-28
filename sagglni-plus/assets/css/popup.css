@@ -184,6 +184,13 @@ label input {
   width: 90%;
   max-width: 520px;
 }
+/* Larger modal for multi-tab editor */
+.modal-content.modal-large {
+  max-width: 900px;
+  width: 95%;
+  max-height: 92vh;
+  overflow-y: auto;
+}
 .modal-close {
   float: right;
   cursor: pointer;
@@ -200,3 +207,24 @@ label input {
   border: 1px solid #ddd;
 }
 .modal .status { margin-top: 10px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tab { background: #f3f4f6; color: #333; padding: 8px 10px; border-radius: 6px; cursor: pointer; border: 1px solid #ddd; }
+.tab.active { background: #667eea; color: white; border-color: #5568d3; }
+.tab-panel { display: block; }
+.modal-section { margin-bottom: 12px; }
+.full-width { width: 100%; }
+
+/* dynamic lists */
+.template-item { border: 1px solid #eee; padding: 8px; border-radius: 6px; margin-bottom: 8px; background: #fafafa; }
+.field-row { display:flex; gap: 8px; }
+.field-row input, .field-row textarea { flex: 1; }
+.tags-list { display:flex; gap:6px; flex-wrap: wrap; }
+.tag { background: #edf2ff; color:#3730a3; padding: 6px 8px; border-radius: 999px; display:flex; gap:8px; align-items:center; }
+.remove-btn { color:#e53e3e; cursor: pointer; background:none; border:none; padding: 6px; }
+.btn-link { background: transparent; color:#7c3aed; border: none; padding: 6px; cursor: pointer; text-decoration: underline; }
+
+/* small adjustments for modal input elements */
+.modal input[type="date"], .modal input[type="number"], .modal textarea { font-size: 13px; }
+

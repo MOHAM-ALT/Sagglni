@@ -55,34 +55,154 @@
     </div>
   </div>
 
-  <!-- Profile Import / Create Modal -->
+  <!-- Profile Editor Modal (multi-tab) -->
   <div id="profileModal" class="modal" style="display:none;">
-    <div class="modal-content">
+    <div class="modal-content modal-large">
       <span id="profileClose" class="modal-close">&times;</span>
-      <h2>Create / Import Profile</h2>
-      <div class="section">
-        <label>Name</label>
-        <input id="profileName" placeholder="Profile Display Name" />
+      <h2>Edit Profile</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab active" role="tab" data-tab="personal">Personal</button>
+        <button class="tab" role="tab" data-tab="education">Education</button>
+        <button class="tab" role="tab" data-tab="experience">Experience</button>
+        <button class="tab" role="tab" data-tab="skills">Skills</button>
+        <button class="tab" role="tab" data-tab="languages">Languages</button>
+        <button class="tab" role="tab" data-tab="preferences">Preferences</button>
       </div>
-      <div class="section">
-        <label>First Name</label>
-        <input id="firstName" placeholder="First Name" />
-        <label>Last Name</label>
-        <input id="lastName" placeholder="Last Name" />
-        <label>Email</label>
-        <input id="email" placeholder="email@example.com" />
-        <label>Phone</label>
-        <input id="phone" placeholder="+9665XXXXXXXX" />
+
+      <div class="tab-content">
+        <form id="profileForm">
+          <input id="profileName" placeholder="Profile Display Name" class="full-width" />
+          <label>Paste AI JSON Output (with or without markers)</label>
+          <textarea id="aiJson" rows="6" placeholder="Paste JSON here... (===== START PROFILE DATA ===== ... ===== END PROFILE DATA =====)"></textarea>
+
+          <!-- Personal -->
+          <section id="tab-personal" class="modal-section tab-panel">
+            <h3>Personal Information</h3>
+            <label>First Name</label>
+            <input id="firstName" placeholder="First Name" />
+            <label>Last Name</label>
+            <input id="lastName" placeholder="Last Name" />
+            <label>Email</label>
+            <input id="email" placeholder="email@example.com" />
+            <label>Phone</label>
+            <input id="phone" placeholder="+9665XXXXXXXX" />
+            <label>Date of Birth</label>
+            <input id="dateOfBirth" type="date" />
+            <label>Gender</label>
+            <input id="gender" placeholder="Gender" />
+            <label>Nationality</label>
+            <input id="nationality" placeholder="Nationality" />
+            <label>City</label>
+            <input id="city" placeholder="City" />
+            <label>Postal Code</label>
+            <input id="postalCode" placeholder="Postal Code" />
+          </section>
+
+          <!-- Education -->
+          <section id="tab-education" class="modal-section tab-panel" style="display:none;">
+            <h3>Education</h3>
+            <div id="educationList"></div>
+            <button id="addEducationBtn" type="button" class="btn btn-primary">+ Add Education</button>
+          </section>
+
+          <!-- Experience -->
+          <section id="tab-experience" class="modal-section tab-panel" style="display:none;">
+            <h3>Experience</h3>
+            <div id="experienceList"></div>
+            <button id="addExperienceBtn" type="button" class="btn btn-primary">+ Add Experience</button>
+          </section>
+
+          <!-- Skills -->
+          <section id="tab-skills" class="modal-section tab-panel" style="display:none;">
+            <h3>Skills</h3>
+            <label>Technical Skills</label>
+            <div id="technicalSkills" class="tags-list"></div>
+            <input id="techSkillInput" placeholder="Add technical skill and press Enter" />
+            <label>Soft Skills</label>
+            <div id="softSkills" class="tags-list"></div>
+            <input id="softSkillInput" placeholder="Add soft skill and press Enter" />
+          </section>
+
+          <!-- Languages -->
+          <section id="tab-languages" class="modal-section tab-panel" style="display:none;">
+            <h3>Languages</h3>
+            <div id="languagesList"></div>
+            <button id="addLanguageBtn" type="button" class="btn btn-primary">+ Add Language</button>
+          </section>
+
+          <!-- Preferences -->
+          <section id="tab-preferences" class="modal-section tab-panel" style="display:none;">
+            <h3>Work Preferences</h3>
+            <label>Target Positions</label>
+            <input id="targetPositions" placeholder="e.g. Senior Software Engineer" />
+            <label>
+              <input id="willingToRelocate" type="checkbox" /> Willing to Relocate
+            </label>
+            <label>
+              <input id="willingToTravel" type="checkbox" /> Willing to Travel
+            </label>
+            <label>Max Travel Percentage</label>
+            <input id="maxTravelPercentage" type="number" min="0" max="100" />
+            <label>Employment Types (comma-separated)</label>
+            <input id="employmentTypes" placeholder="Full-time, Part-time, Contract" />
+          </section>
+
+          <div class="section modal-actions">
+            <button id="parseJsonBtn" type="button" class="btn btn-primary">Parse & Validate JSON</button>
+            <button id="saveProfileBtn" type="button" class="btn btn-success">Save Profile</button>
+            <button id="cancelProfileBtn" type="button" class="btn btn-secondary">Cancel</button>
+          </div>
+          <div id="profileErrors" class="status"></div>
+        </form>
       </div>
-      <div class="section">
-        <label>Paste AI JSON Output (with or without markers)</label>
-        <textarea id="aiJson" rows="8" placeholder="Paste JSON here... (===== START PROFILE DATA ===== ... ===== END PROFILE DATA =====)"></textarea>
+
+      <!-- Templates (hidden) -->
+      <div id="templates" style="display:none;">
+        <div id="educationTemplate" class="template-item">
+          <div class="field-row">
+            <input class="edu-degree" placeholder="Degree" />
+            <input class="edu-field" placeholder="Field of Study" />
+          </div>
+          <div class="field-row">
+            <input class="edu-university" placeholder="University" />
+            <input class="edu-country" placeholder="Country" />
+          </div>
+          <div class="field-row">
+            <input class="edu-startYear" type="number" placeholder="Start Year" />
+            <input class="edu-graduationYear" type="number" placeholder="Graduation Year" />
+            <input class="edu-gpa" placeholder="GPA" />
+            <label><input class="edu-stillAttending" type="checkbox" /> Still Attending</label>
+          </div>
+          <button class="removeEducationBtn btn btn-link">Remove</button>
+        </div>
+
+        <div id="experienceTemplate" class="template-item">
+          <div class="field-row">
+            <input class="exp-jobTitle" placeholder="Job Title" />
+            <input class="exp-company" placeholder="Company" />
+          </div>
+          <div class="field-row">
+            <input class="exp-startDate" type="date" placeholder="Start Date" />
+            <input class="exp-endDate" type="date" placeholder="End Date" />
+            <label><input class="exp-currentlyWorking" type="checkbox" /> Current</label>
+          </div>
+          <div class="field-row">
+            <textarea class="exp-description" placeholder="Description / Achievements"></textarea>
+          </div>
+          <button class="removeExperienceBtn btn btn-link">Remove</button>
+        </div>
+
+        <div id="languageTemplate" class="template-item">
+          <input class="lang-name" placeholder="Language" />
+          <select class="lang-level">
+            <option value="basic">Basic</option>
+            <option value="conversational">Conversational</option>
+            <option value="fluent">Fluent</option>
+            <option value="native">Native</option>
+          </select>
+          <button class="removeLanguageBtn btn btn-link">Remove</button>
+        </div>
       </div>
-      <div class="section">
-        <button id="parseJsonBtn" class="btn btn-primary">Parse & Validate JSON</button>
-        <button id="saveProfileBtn" class="btn btn-success">Save Profile</button>
-      </div>
-      <div id="profileErrors" class="status"></div>
     </div>
   </div>
 
