@@ -66,9 +66,45 @@ function validateProfile(profile) {
   return { isValid: errors.length === 0, errors };
 }
 
+// AJV-based Schema validation
+let Ajv;
+try {
+  Ajv = typeof window !== 'undefined' && window.Ajv ? window.Ajv : require('ajv');
+} catch (e) {
+  Ajv = undefined; // not available in this environment
+}
+
+const PROFILE_SCHEMA = require('../schema/profileSchema.json');
+
+/**
+ * Validate a profile using AJV if available, else the simple validator
+ * @param {Object} profile
+ * @returns {{isValid:boolean, errors:Array<string>, ajvErrors:Array<Object>}}
+ */
+function validateProfileWithSchema(profile) {
+  if (Ajv) {
+      const ajv = new Ajv({ allErrors: true, strict: false });
+      try {
+        // add formats if available
+        const ajvFormats = require('ajv-formats');
+        ajvFormats(ajv);
+      } catch (err) {
+        // ignore if not available in browser
+      }
+    const validate = ajv.compile(PROFILE_SCHEMA);
+    const valid = validate(profile.data ? profile : profile.data || profile);
+    if (valid) return { isValid: true, errors: [], ajvErrors: [] };
+    const errors = (validate.errors || []).map(err => `${err.instancePath.replace(/\//g, '.') || err.params.missingProperty || ''} ${err.message}`.trim());
+    return { isValid: false, errors, ajvErrors: validate.errors };
+  }
+  // Fallback to lightweight checks
+  const v = validateProfile(profile);
+  return { isValid: v.isValid, errors: v.errors, ajvErrors: [] };
+}
+
 // Expose functions for popup usage and tests
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { stripMarkers, parseProfileJSON, validateProfile };
+  module.exports = { stripMarkers, parseProfileJSON, validateProfile, validateProfileWithSchema };
 }
 
 // Make global for browser popup scripts
@@ -76,4 +112,5 @@ if (typeof window !== 'undefined') {
   window.validateProfile = validateProfile;
   window.parseProfileJSON = parseProfileJSON;
   window.stripMarkers = stripMarkers;
+  window.validateProfileWithSchema = validateProfileWithSchema;
 }

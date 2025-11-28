@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sagglni Profile",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "version": { "type": "string" },
+    "data": {
+      "type": "object",
+      "properties": {
+        "personalInfo": {
+          "type": "object",
+          "properties": {
+            "firstName": { "type": "string" },
+            "lastName": { "type": "string" },
+            "middleName": { "type": ["string", "null"] },
+            "email": { "type": "string", "format": "email" },
+            "phone": { "type": "string" },
+            "alternatePhone": { "type": ["string", "null"] },
+            "dateOfBirth": { "type": ["string", "null"] },
+            "gender": { "type": ["string", "null"] },
+            "maritalStatus": { "type": ["string", "null"] },
+            "nationality": { "type": ["string", "null"] },
+            "countryOfResidence": { "type": ["string", "null"] },
+            "city": { "type": ["string", "null"] }
+          },
+          "required": ["firstName", "lastName", "email", "phone"]
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "degree": { "type": "string" },
+              "field": { "type": "string" },
+              "university": { "type": "string" },
+              "country": { "type": "string" },
+              "city": { "type": ["string", "null"] },
+              "graduationYear": { "type": "integer" },
+              "startYear": { "type": "integer" },
+              "gpa": { "type": ["string", "null"] },
+              "stillAttending": { "type": "boolean" }
+            }
+          }
+        },
+        "experience": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "jobTitle": { "type": "string" },
+              "company": { "type": "string" },
+              "startDate": { "type": "string" },
+              "endDate": { "type": ["string", "null"] },
+              "duration": { "type": ["string", "null"] },
+              "currentlyWorking": { "type": "boolean" },
+              "locationCountry": { "type": "string" }
+            }
+          }
+        },
+        "skills": {
+          "type": "object",
+          "properties": {
+            "technical": { "type": "array", "items": { "type": "string" } },
+            "soft": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": { "type": "string" },
+              "level": { "type": "string" }
+            }
+          }
+        },
+        "workPreferences": { "type": "object" },
+        "careerGoals": { "type": "object" },
+        "additionalInfo": { "type": "object" }
+      }
+    }
+  },
+  "required": ["data"]
+}

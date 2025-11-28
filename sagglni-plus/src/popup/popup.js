@@ -1,4 +1,4 @@
-/* global parseProfileJSON, validateProfile */
+/* global parseProfileJSON, validateProfile, validateProfileWithSchema */
 // Sagglni Plus - Popup Script
 
 console.log('Sagglni Plus Popup Loaded');
@@ -38,6 +38,9 @@ function setupEventListeners() {
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
   document.getElementById('aiEnabled').addEventListener('change', toggleAISettings);
   document.getElementById('profileSelect').addEventListener('change', enableAutoFill);
+  // Edit profile button element (may be disabled initially)
+  const editBtn = document.getElementById('editProfileBtn');
+  if (editBtn) editBtn.addEventListener('click', editSelectedProfile);
 }
 
 async function autoFill() {
@@ -105,6 +108,8 @@ function openProfileModal() {
   const modal = document.getElementById('profileModal');
   modal.style.display = 'flex';
   document.getElementById('profileErrors').textContent = '';
+  // Reset editing id when opening a new modal
+  if (modal.dataset.editingId) delete modal.dataset.editingId;
 }
 
 function closeProfileModal() {
@@ -131,14 +136,24 @@ async function parseProfileJson() {
     const parsed = parseProfileJSON(raw);
     // Accept both top-level profile object or wrapper { data: {...} }
     const profile = parsed.id && parsed.data ? parsed : { data: parsed };
-    const vi = validateProfile(profile.data || profile);
-    if (!vi.isValid) {
-      errorsDiv.textContent = vi.errors.join('; ');
+    // Use AJV schema validator (if available)
+    const sv = validateProfileWithSchema(profile);
+    if (!sv.isValid) {
+      const messages = sv.errors || [];
+      // if ajvErrors exist, include details
+      if (sv.ajvErrors && sv.ajvErrors.length > 0) {
+        const ajvMsgs = sv.ajvErrors.map(e => `${e.instancePath.replace(/\//g, '.') || e.params.missingProperty || 'field'} ${e.message}`);
+        messages.push(...ajvMsgs);
+      }
+      errorsDiv.textContent = messages.join('; ');
       errorsDiv.className = 'status status-error';
       return;
     }
     // Fill modal fields
     fillModalFieldsFromObject(profile);
+    // clear editing id
+    const modal = document.getElementById('profileModal');
+    if (modal?.dataset?.editingId) delete modal.dataset.editingId;
     errorsDiv.textContent = 'Parsed successfully. You may edit values and Save.';
     errorsDiv.className = 'status status-success';
   } catch (err) {
@@ -165,6 +180,12 @@ async function saveProfileFromModal() {
   }
 
   const profile = { name, data };
+  const modal = document.getElementById('profileModal');
+  const editingId = modal?.dataset?.editingId;
+  if (editingId) {
+    profile.id = editingId;
+    delete modal.dataset.editingId;
+  }
   showStatus('Saving profile...', 'loading');
   chrome.runtime.sendMessage({ action: 'saveProfile', profile }, (resp) => {
     if (resp?.success) {
@@ -176,6 +197,18 @@ async function saveProfileFromModal() {
       errorsDiv.className = 'status status-error';
       showStatus('Failed to save profile', 'error');
     }
+  });
+}
+
+async function editSelectedProfile() {
+  const profileId = document.getElementById('profileSelect').value;
+  if (!profileId) return;
+  chrome.runtime.sendMessage({ action: 'getProfile', profileId }, (resp) => {
+    if (!resp || !resp.success || !resp.data) return showStatus('Failed to load profile', 'error');
+    const profile = resp.data;
+    fillModalFieldsFromObject(profile);
+    const modal = document.getElementById('profileModal');
+    modal.dataset.editingId = profile.id;
   });
 }
 
@@ -195,6 +228,8 @@ function toggleAISettings() {
 function enableAutoFill() {
   const btn = document.getElementById('autoFillBtn');
   btn.disabled = !document.getElementById('profileSelect').value;
+  const editBtn = document.getElementById('editProfileBtn');
+  if (editBtn) editBtn.disabled = !document.getElementById('profileSelect').value;
 }
 
 function showStatus(message, type = 'info') {
