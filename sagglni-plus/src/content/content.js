@@ -17,11 +17,14 @@ function mergeAIWithPattern(analysis, aiSuggestions = []) {
   return fields.map((f, idx) => {
     const aiSuggestion = (aiSuggestions || []).find(s => s.index === idx || s.name === f.name);
     if (!aiSuggestion) return f;
+    // preserve original detection so we can revert if user rejects AI
+    const originalDetectedType = f.detectedType;
+    const originalDetectionConfidence = f.detectionConfidence || 0;
     const aiConf = aiSuggestion.confidence || 0;
     const currentConf = f.detectionConfidence || 0;
     const chosenConf = Math.max(currentConf, aiConf);
     const chosenType = aiSuggestion.suggestedType || f.detectedType;
-    return Object.assign({}, f, { aiSuggested: aiSuggestion.suggestedType, aiConfidence: aiConf, detectedType: chosenType, detectionConfidence: Math.min(1.0, chosenConf + (currentConf + aiConf) / 4 ) });
+    return Object.assign({}, f, { originalDetectedType, originalDetectionConfidence, aiSuggested: aiSuggestion.suggestedType, aiConfidence: aiConf, detectedType: chosenType, detectionConfidence: Math.min(1.0, chosenConf + (currentConf + aiConf) / 4 ) });
   });
 }
 
@@ -98,6 +101,13 @@ async function handleAutoFill(profileId) {
   // Analyze current form
   const analysis = analyzeCurrentForm();
   const fields = analysis.fields;
+  // Respect AI per-field preferences saved in settings (chrome.storage.local)
+  const settings = await new Promise((resolve) => {
+    try {
+      chrome.storage.local.get(['settings'], (r) => resolve(r?.settings || {}));
+    } catch (e) { resolve({}); }
+  });
+  const prefs = (settings && settings.aiFieldPreferences) ? settings.aiFieldPreferences : {};
 
   let filledCount = 0;
   const results = [];
@@ -106,6 +116,13 @@ async function handleAutoFill(profileId) {
 
   const startTime = Date.now();
   for (const field of fields) {
+    // If AI suggestion is present but user explicitly rejected, revert to original detection
+    if (field.aiSuggested && Object.prototype.hasOwnProperty.call(prefs, field.name) && prefs[field.name] === false) {
+      if (field.originalDetectedType) {
+        field.detectedType = field.originalDetectedType;
+        field.detectionConfidence = field.originalDetectionConfidence || field.detectionConfidence || 0;
+      }
+    }
     try {
       const detectedType = field.detectedType;
       if ((field.detectionConfidence || 0) < 0.5) {

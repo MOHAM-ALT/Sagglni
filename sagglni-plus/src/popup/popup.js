@@ -7,6 +7,7 @@ const { buildInterviewPrompt } = require('./prompt-generator');
 // Load profiles on startup
 document.addEventListener('DOMContentLoaded', async () => {
   await loadProfiles();
+  await loadSettings();
   setupEventListeners();
   setupProfileModalUI();
 });
@@ -29,6 +30,40 @@ async function loadProfiles() {
     console.error('Failed to load profiles', err);
   }
 }
+
+function toggleAiPref(fieldName, accept, btnAccept, btnReject) {
+  window.aiFieldPreferences = window.aiFieldPreferences || {};
+  window.aiFieldPreferences[fieldName] = accept;
+  // update UI
+  if (accept) {
+    btnAccept.classList.add('accepted');
+    btnAccept.textContent = 'Accepted';
+    btnReject.classList.remove('rejected');
+    btnReject.textContent = 'Reject';
+  } else {
+    btnAccept.classList.remove('accepted');
+    btnAccept.textContent = 'Accept';
+    btnReject.classList.add('rejected');
+    btnReject.textContent = 'Rejected';
+  }
+  // persist to settings
+  const settings = { aiEnabled: document.getElementById('aiEnabled').checked, aiFieldPreferences: window.aiFieldPreferences };
+  chrome.runtime.sendMessage({ action: 'saveSettings', settings }, (resp) => {
+    if (!resp || !resp.success) console.warn('Failed to save AI preference');
+  });
+}
+
+  async function loadSettings() {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ action: 'getSettings' }, (resp) => {
+          if (!resp || !resp.success) return resolve({});
+          window.aiFieldPreferences = resp.data?.aiFieldPreferences || {};
+          resolve(resp.data || {});
+        });
+      } catch (e) { resolve({}); }
+    });
+  }
 
 function setupEventListeners() {
   document.getElementById('autoFillBtn').addEventListener('click', autoFill);
@@ -297,11 +332,35 @@ function analyzeForm() {
           if (f.aiSuggested || f.aiConfidence) {
             const r = document.createElement('div');
             r.className = 'ai-field-row';
+            const pref = (window.aiFieldPreferences && window.aiFieldPreferences[f.name]) ? window.aiFieldPreferences[f.name] : null;
             r.innerHTML = `<b>${escapeHtml(f.name || f.label || '')}</b> — Detected: ${escapeHtml(f.detectedType || '')} (${(f.detectionConfidence||0).toFixed(2)}) ${f.aiSuggested ? '<span class="ai-suggest">• AI: ' + escapeHtml(f.aiSuggested) + ' (' + (f.aiConfidence||0).toFixed(2) + ')</span>' : ''}`;
-            aiFieldsList.appendChild(r);
+            // add accept / reject buttons
+            const btnAccept = document.createElement('button');
+            btnAccept.className = 'btn btn-small ai-accept';
+            btnAccept.textContent = pref === true ? 'Accepted' : 'Accept';
+            if (pref === true) btnAccept.classList.add('accepted');
+            const btnReject = document.createElement('button');
+            btnReject.className = 'btn btn-small ai-reject';
+            btnReject.textContent = pref === false ? 'Rejected' : 'Reject';
+            if (pref === false) btnReject.classList.add('rejected');
+            btnAccept.addEventListener('click', () => toggleAiPref(f.name, true, btnAccept, btnReject));
+            btnReject.addEventListener('click', () => toggleAiPref(f.name, false, btnAccept, btnReject));
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'flex';
+            wrapper.style.gap = '8px';
+            wrapper.appendChild(btnAccept);
+            wrapper.appendChild(btnReject);
+            const container = document.createElement('div');
+            container.style.display = 'flex';
+            container.style.justifyContent = 'space-between';
+            container.appendChild(r);
+            container.appendChild(wrapper);
+            aiFieldsList.appendChild(container);
           }
         });
         aiResultDiv.style.display = 'block';
+        // if first time use, ensure aiFieldPreferences exists locally
+        window.aiFieldPreferences = window.aiFieldPreferences || {};
       } else {
         aiResultDiv.style.display = 'none';
       }

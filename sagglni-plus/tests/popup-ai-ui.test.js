@@ -57,4 +57,29 @@ describe('Popup AI UI', () => {
       done();
     }, 50);
   });
+
+  test('accepting a suggestion updates settings and UI', (done) => {
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    analyzeBtn.click();
+    setTimeout(() => {
+      const aiResult = document.getElementById('aiAnalysisResult');
+      const fieldsList = document.getElementById('aiFieldsList');
+      expect(fieldsList.children.length).toBeGreaterThan(0);
+      // find first accept button in list
+      const acceptBtn = fieldsList.querySelector('.ai-accept');
+      expect(acceptBtn).toBeTruthy();
+      acceptBtn.click();
+      // ensure saveSettings called with aiFieldPreferences set
+      const saveSettingsCall = global.chrome.runtime.sendMessage.mock.calls.find(c => c[0] && c[0].action === 'saveSettings');
+      expect(saveSettingsCall).toBeTruthy();
+      const settingsArg = saveSettingsCall[0].settings;
+      expect(settingsArg).toBeTruthy();
+      expect(settingsArg.aiFieldPreferences).toBeTruthy();
+      // first key should be first field name - check at least one mapping exists
+      const keys = Object.keys(settingsArg.aiFieldPreferences);
+      expect(keys.length).toBeGreaterThan(0);
+      expect(settingsArg.aiFieldPreferences[keys[0]]).toBe(true);
+      done();
+    }, 50);
+  });
 });
