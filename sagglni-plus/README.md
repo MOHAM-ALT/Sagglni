@@ -129,6 +129,10 @@ See `tests/benchmark.test.js` and `BENCHMARK_RESULTS.md` for example benchmark r
 - ✅ No tracking or analytics
 - ✅ No server-side processing
 
+Read the full privacy details:
+- Privacy Policy: https://github.com/MOHAM-ALT/Sagglni/blob/main/PRIVACY_POLICY.md
+- Terms of Service: https://github.com/MOHAM-ALT/Sagglni/blob/main/TERMS_OF_SERVICE.md
+
 ## 🧪 Testing
 
 ```bash
@@ -150,6 +154,15 @@ npm run test:all
 # Run Jest watch mode
 npm run test:watch
 ```
+
+## 🛒 Chrome Web Store Assets
+
+Place your store assets in the `store-assets/` directory before submission. Recommended files:
+- `icon-128.png` (required)
+- `screenshot1.png`, `screenshot2.png`, `screenshot3.png`, `screenshot4.png` (1280x800 recommended)
+- `promo-440x280.png` (optional)
+
+Add a compelling store description in `store-assets/store-description.txt` and verify the assets in the Chrome Web Store Developer Dashboard during submission.
 
 ## 📝 License
 

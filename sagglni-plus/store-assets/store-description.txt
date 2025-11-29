@@ -1,0 +1,3 @@
+Sagglni Plus — Smart, Privacy-Focused Auto Form Filler
+
+Sagglni Plus helps you fill online forms in seconds with smart detection, secure local storage, and optional local AI transformation. Designed for privacy, Sagglni Plus stores your profiles and data locally in your browser, and only uses AI when you opt in and point to your own local LLM (Ollama or LM Studio). It enhances form detection accuracy, supports per-field AI suggestions, and provides simple profile management for a fast, reliable experience. Perfect for job applications, sign-ups, and repetitive forms, Sagglni Plus saves time while keeping your data private and under your control.

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sagglni Plus - Auto Form Filler",
   "version": "1.0.0",
-  "description": "Smart Chrome Extension for automatic form filling with Local AI support",
+  "description": "Smart Chrome Extension for automatic form filling with local AI support (Ollama/LM Studio) — data stored locally, optional AI usage opt-in.",
   "author": "Mohammed Al-Qahtani",
   
   "icons": {

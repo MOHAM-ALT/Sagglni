@@ -102,7 +102,7 @@ class AITransformer {
         candidates = low; // if no low-confidence fields, we will have candidates.length===0 and return early
       }
       // if there are no candidates, fall back to nothing (avoid unnecessary LLM calls)
-      if (!candidates || candidates.length === 0) return { suggestions: [], raw: null };
+      if (!candidates || candidates.length === 0) return { suggestions: [], raw: null, latencyMs: 0, cached: false };
       // chunk candidates by batchSize
       const chunks = [];
       for (let i = 0; i < candidates.length; i += batchSize) chunks.push(candidates.slice(i, i + batchSize));
@@ -179,7 +179,7 @@ class AITransformer {
           this._cache.set(cacheKey, { value: val3, ts: Date.now() });
           return val3;
         }
-        return { suggestions: [], raw: null };
+        return { suggestions: [], raw: null, latencyMs: 0, cached: false };
       };
 
       let anyCached = false;
@@ -195,7 +195,7 @@ class AITransformer {
       }
       return { suggestions: allSuggestions, raw: null, latencyMs: totalLatency, cached: anyCached };
     } catch (err) {
-      return { suggestions: [], raw: null };
+      return { suggestions: [], raw: null, latencyMs: 0, cached: false };
     }
   }
 }
