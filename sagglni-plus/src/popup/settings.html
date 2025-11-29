@@ -17,6 +17,12 @@
         <input type="text" id="aiPort" placeholder="AI Port (11434)" value="11434" />
       </div>
       <div class="section">
+        <label><input type="checkbox" id="aiOnlyLowConfidence"> Only analyze low-confidence fields</label>
+        <label>Low-confidence threshold (0-1): <input type="number" id="aiLowConfidenceThreshold" step="0.05" min="0" max="1" value="0.7" /></label>
+        <label>LM concise prompts: <input type="checkbox" id="aiConcisePrompts" /></label>
+        <label>AI batch size: <input type="number" id="aiBatchSize" step="1" min="1" max="50" value="10" /></label>
+      </div>
+      <div class="section">
         <label>Theme</label>
         <select id="themeSelect">
           <option value="light">Light</option>

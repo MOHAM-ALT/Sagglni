@@ -7,8 +7,8 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Sagglni Plus installed!');
   // Initialize default storage if not set
   chrome.storage.local.get(['profiles', 'settings'], (res) => {
-    if (!res.profiles) chrome.storage.local.set({ profiles: [] });
-    if (!res.settings) chrome.storage.local.set({ settings: { aiEnabled: false, aiPort: 11434, autoDetectAI: true } });
+  if (!res.profiles) chrome.storage.local.set({ profiles: [] });
+  if (!res.settings) chrome.storage.local.set({ settings: { aiEnabled: false, aiPort: 11434, autoDetectAI: true, aiOnlyLowConfidence: true, aiLowConfidenceThreshold: 0.7, aiConcise: false, aiBatchSize: 10 } });
   });
   // Attempt to auto-detect local AI backends and update settings if found
   (async () => {
@@ -78,7 +78,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           try {
             const AIClass = require('../transformer/ai-transformer');
             const aiClient = new AIClass({ type: 'ollama', port: (request.port || 11434) });
-              const resp = await aiClient.analyzeFormWithAI(formHtml, fields, request.pageInfo || {});
+            // incorporate user/provided settings (batch size, low confidence thresholds)
+            const settings = await new Promise((resolve) => chrome.storage.local.get(['settings'], (r) => resolve(r?.settings || {})));
+            const context = Object.assign({}, request.pageInfo || {}, {
+              batchSize: request.batchSize || settings.aiBatchSize || aiClient.batchSize,
+              onlyLowConfidence: typeof request.onlyLowConfidence === 'boolean' ? request.onlyLowConfidence : (typeof settings.aiOnlyLowConfidence === 'boolean' ? settings.aiOnlyLowConfidence : aiClient.onlyLowConfidence),
+              lowConfidenceThreshold: request.lowConfidenceThreshold || settings.aiLowConfidenceThreshold || aiClient.lowConfidenceThreshold,
+              concise: typeof request.concise === 'boolean' ? request.concise : !!settings.aiConcise
+            });
+            const resp = await aiClient.analyzeFormWithAI(formHtml, fields, context);
             sendResponse({ success: true, data: resp });
           } catch (err) {
             sendResponse({ success: false, error: err.message });
