@@ -284,8 +284,28 @@ async function autoFill() {
 function analyzeForm() {
   showStatus('Analyzing form...', 'loading');
   chrome.runtime.sendMessage({ action: 'analyzeForm' }, (response) => {
-    if (response && response.success) showStatus(`Found ${response.fieldCount} fields on this page`, 'success');
-    else showStatus('Failed to analyze form', 'error');
+    const aiResultDiv = document.getElementById('aiAnalysisResult');
+    const aiFieldsList = document.getElementById('aiFieldsList');
+    if (response && response.success) {
+      const count = response.fieldCount || (response.data && response.data.fields && response.data.fields.length) || 0;
+      showStatus(`Found ${count} fields on this page`, 'success');
+      const aiUsed = response.aiUsed || (response.data && response.data.aiUsed);
+      if (aiUsed) {
+        aiFieldsList.innerHTML = '';
+        const fields = (response.data && response.data.fields) || response.fields || [];
+        fields.forEach(f => {
+          if (f.aiSuggested || f.aiConfidence) {
+            const r = document.createElement('div');
+            r.className = 'ai-field-row';
+            r.innerHTML = `<b>${escapeHtml(f.name || f.label || '')}</b> — Detected: ${escapeHtml(f.detectedType || '')} (${(f.detectionConfidence||0).toFixed(2)}) ${f.aiSuggested ? '<span class="ai-suggest">• AI: ' + escapeHtml(f.aiSuggested) + ' (' + (f.aiConfidence||0).toFixed(2) + ')</span>' : ''}`;
+            aiFieldsList.appendChild(r);
+          }
+        });
+        aiResultDiv.style.display = 'block';
+      } else {
+        aiResultDiv.style.display = 'none';
+      }
+    } else showStatus('Failed to analyze form', 'error');
   });
 }
 

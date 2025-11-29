@@ -12,6 +12,18 @@ try {
 }
 
 console.log('Sagglni Plus Content Script Loaded');
+function mergeAIWithPattern(analysis, aiSuggestions = []) {
+  const fields = (analysis && analysis.fields) ? analysis.fields : [];
+  return fields.map((f, idx) => {
+    const aiSuggestion = (aiSuggestions || []).find(s => s.index === idx || s.name === f.name);
+    if (!aiSuggestion) return f;
+    const aiConf = aiSuggestion.confidence || 0;
+    const currentConf = f.detectionConfidence || 0;
+    const chosenConf = Math.max(currentConf, aiConf);
+    const chosenType = aiSuggestion.suggestedType || f.detectedType;
+    return Object.assign({}, f, { aiSuggested: aiSuggestion.suggestedType, aiConfidence: aiConf, detectedType: chosenType, detectionConfidence: Math.min(1.0, chosenConf + (currentConf + aiConf) / 4 ) });
+  });
+}
 
 // Listen for messages from popup/background
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
@@ -240,9 +252,10 @@ if (typeof window !== 'undefined') {
   // For tests, attach helpers
   window.fillFieldAdvanced = fillFieldAdvanced;
   window.mapProfileToField = mapProfileToField;
+  window.mergeAIWithPattern = mergeAIWithPattern;
 }
 
 // CommonJS export for tests
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { analyzeCurrentForm, handleAutoFill, fillFieldAdvanced, mapProfileToField };
+  module.exports = { analyzeCurrentForm, handleAutoFill, fillFieldAdvanced, mapProfileToField, mergeAIWithPattern };
 }

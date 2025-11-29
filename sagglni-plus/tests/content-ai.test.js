@@ -23,17 +23,14 @@ describe('Content script AI merging', () => {
     jest.resetModules();
   });
 
-  test('analyzeFormWithAI merges pattern and AI results', (done) => {
+  test('mergeAIWithPattern merges pattern and AI results', () => {
     const res = global.content.analyzeCurrentForm();
     expect(res.fields.length).toBeGreaterThan(0);
-    // call analyzeFormWithAI and verify merged
-    global.content.analyzeFormWithAI({}, {}, (resp) => {
-      // Our implementation uses sendResponse from content script, but here we can call the method directly
-    });
-    // Instead, simulate call via direct function
-    global.content.analyzeCurrentForm();
-    // The handler uses chrome.runtime.sendMessage; check it was called
-    expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ action: 'analyzeFormWithAI' }), expect.any(Function));
-    done();
+    const analysis = { fields: res.fields.map((f, i) => ({ ...f, detectionConfidence: i === 0 ? 0.4 : (f.detectionConfidence || 0.8) })) };
+    const suggestions = [{ index: 0, name: analysis.fields[0].name, suggestedType: 'firstName', confidence: 0.95 }];
+    const merged = global.content.mergeAIWithPattern(analysis, suggestions);
+    expect(merged[0].aiSuggested).toBe('firstName');
+    expect(merged[0].aiConfidence).toBeGreaterThan(0.9);
+    expect(merged[0].detectionConfidence).toBeGreaterThanOrEqual(merged[0].aiConfidence);
   });
 });
