@@ -61,7 +61,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
       const form = document.querySelector('form');
       const formHtml = form ? form.outerHTML : document.documentElement.outerHTML;
       // Send to background for AI analysis
-      chrome.runtime.sendMessage({ action: 'analyzeFormWithAI', formHtml, fields }, (resp) => {
+      chrome.runtime.sendMessage({ action: 'analyzeFormWithAI', formHtml, fields, pageInfo: { pageTitle: (analysis && analysis.formInfo && analysis.formInfo.pageTitle) || '', company: (analysis && analysis.formInfo && analysis.formInfo.company) || '', websiteUrl: window.location.href } }, (resp) => {
         if (!resp || !resp.success) return sendResponse({ success: true, data: analysis, aiUsed: false });
         const aiResult = resp.data || { suggestions: [] };
         // Merge suggestions

@@ -78,7 +78,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           try {
             const AIClass = require('../transformer/ai-transformer');
             const aiClient = new AIClass({ type: 'ollama', port: (request.port || 11434) });
-            const resp = await aiClient.analyzeFormWithAI(formHtml, fields);
+              const resp = await aiClient.analyzeFormWithAI(formHtml, fields, request.pageInfo || {});
             sendResponse({ success: true, data: resp });
           } catch (err) {
             sendResponse({ success: false, error: err.message });
