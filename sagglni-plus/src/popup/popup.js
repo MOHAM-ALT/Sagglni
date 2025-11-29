@@ -58,6 +58,7 @@ function toggleAiPref(fieldName, accept, btnAccept, btnReject) {
       try {
         chrome.runtime.sendMessage({ action: 'getSettings' }, (resp) => {
           if (!resp || !resp.success) return resolve({});
+          window.settings = resp.data || {};
           window.aiFieldPreferences = resp.data?.aiFieldPreferences || {};
           resolve(resp.data || {});
         });
@@ -79,6 +80,13 @@ function setupEventListeners() {
   document.getElementById('profileClose').addEventListener('click', closeProfileModal);
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
   document.getElementById('aiEnabled').addEventListener('change', toggleAISettings);
+  // Consent modal handlers
+  const consentUse = document.getElementById('aiConsentUseBtn');
+  const consentCancel = document.getElementById('aiConsentCancelBtn');
+  const consentClose = document.getElementById('aiConsentClose');
+  if (consentUse) consentUse.addEventListener('click', () => handleAiConsent(true));
+  if (consentCancel) consentCancel.addEventListener('click', () => handleAiConsent(false));
+  if (consentClose) consentClose.addEventListener('click', () => handleAiConsent(false));
   const testBtn = document.getElementById('testAIBtn');
   if (testBtn) testBtn.addEventListener('click', testAIConnection);
   document.getElementById('profileSelect').addEventListener('change', enableAutoFill);
@@ -87,6 +95,35 @@ function setupEventListeners() {
   // Edit profile button element (may be disabled initially)
   const editBtn = document.getElementById('editProfileBtn');
   if (editBtn) editBtn.addEventListener('click', editSelectedProfile);
+}
+
+function showAiConsentModal() {
+  const modal = document.getElementById('aiConsentModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeAiConsentModal() {
+  const modal = document.getElementById('aiConsentModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleAiConsent(accepted) {
+  const settings = window.settings || {};
+  settings.aiConsent = !!accepted;
+  // persist
+  chrome.runtime.sendMessage({ action: 'saveSettings', settings }, (resp) => {
+    if (!resp || !resp.success) console.warn('Failed to save AI consent');
+  });
+  // close modal
+  closeAiConsentModal();
+  // optionally proceed if accepted
+  if (accepted) {
+    showStatus('AI enabled for this session', 'success');
+    // re-run analyze to show AI-based results for the current page
+    analyzeForm();
+  } else {
+    showStatus('AI use cancelled', 'info');
+  }
 }
 
 function setupProfileModalUI() {
@@ -318,6 +355,13 @@ async function autoFill() {
 
 function analyzeForm() {
   showStatus('Analyzing form...', 'loading');
+  const aiEnabled = document.getElementById('aiEnabled')?.checked;
+  // If AI is enabled but user hasn't consented, show consent modal
+  if (aiEnabled && !(window.settings && window.settings.aiConsent === true)) {
+    showAiConsentModal();
+    showStatus('Awaiting AI consent…', 'info');
+    return;
+  }
   chrome.runtime.sendMessage({ action: 'analyzeForm' }, (response) => {
     const aiResultDiv = document.getElementById('aiAnalysisResult');
     const aiFieldsList = document.getElementById('aiFieldsList');

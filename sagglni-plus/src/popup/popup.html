@@ -232,6 +232,19 @@
           <button class="removeLanguageBtn btn btn-link">Remove</button>
         </div>
       </div>
+
+        <!-- AI Consent Modal -->
+        <div id="aiConsentModal" class="modal" style="display:none;">
+          <div class="modal-content modal-small">
+            <span id="aiConsentClose" class="modal-close">&times;</span>
+            <h3>Enable AI Features</h3>
+            <p>Use AI to improve form detection and suggestions on pages? This will send anonymized form HTML and field info to your local AI backend.</p>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+              <button id="aiConsentUseBtn" class="btn btn-primary">Use AI</button>
+              <button id="aiConsentCancelBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+          </div>
+        </div>
     </div>
   </div>
 

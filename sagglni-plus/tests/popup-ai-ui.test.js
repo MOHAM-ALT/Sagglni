@@ -82,4 +82,39 @@ describe('Popup AI UI', () => {
       done();
     }, 50);
   });
+
+  test('shows consent modal when AI enabled and consent missing', (done) => {
+    // adjust mock to return settings without aiConsent
+    global.chrome.runtime.sendMessage.mockImplementation((msg, cb) => {
+      if (msg.action === 'analyzeForm') {
+        const data = { aiUsed: true, fields: [{ name: 'firstName', detectedType: 'unknown', detectionConfidence: 0.4, aiSuggested: 'firstName', aiConfidence: 0.93 }] };
+        cb({ success: true, data, aiUsed: true, fieldCount: 1 });
+        return;
+      }
+      if (msg.action === 'getAllProfiles') return cb({ success: true, data: [{ id: 'p-1', name: 'Default', data: { personalInfo: {} } }] });
+      if (msg.action === 'getApplicationHistory') return cb({ success: true, data: [] });
+      if (msg.action === 'getSettings') return cb({ success: true, data: { aiEnabled: true } });
+      cb({ success: true, data: {} });
+    });
+    // ensure aiEnabled checkbox is checked
+    const aiCheckbox = document.getElementById('aiEnabled');
+    aiCheckbox.checked = true;
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    analyzeBtn.click();
+    setTimeout(() => {
+      const consentModal = document.getElementById('aiConsentModal');
+      expect(consentModal).toBeTruthy();
+      expect(consentModal.style.display).not.toBe('none');
+      // click Use AI
+      const useBtn = document.getElementById('aiConsentUseBtn');
+      expect(useBtn).toBeTruthy();
+      useBtn.click();
+      // saveSettings should have been called
+      const saveCall = global.chrome.runtime.sendMessage.mock.calls.find(c => c[0] && c[0].action === 'saveSettings');
+      expect(saveCall).toBeTruthy();
+      const settingsArg = saveCall[0].settings;
+      expect(settingsArg.aiConsent).toBe(true);
+      done();
+    }, 50);
+  });
 });
