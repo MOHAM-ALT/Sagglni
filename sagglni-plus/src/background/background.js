@@ -1,6 +1,6 @@
 // Sagglni Plus - Background Service Worker (module)
 console.log('Sagglni Plus Background Service Worker Loaded');
-const { detectAIEndpoints, checkAIHealth } = require('./ai-connector');
+const { detectAIEndpoints, checkAIHealth, DEFAULTS } = require('./ai-connector');
 
 /** Initialize default data on installation */
 chrome.runtime.onInstalled.addListener(() => {
@@ -13,7 +13,9 @@ chrome.runtime.onInstalled.addListener(() => {
   // Attempt to auto-detect local AI backends and update settings if found
   (async () => {
     try {
-      const det = await detectAIEndpoints();
+      const settingsRes = await new Promise((resolve) => chrome.storage.local.get(['settings'], (r) => resolve(r?.settings || {})));
+      const config = { timeoutMs: 1000, retries: 2, backoff: 1.3, verbose: !!settingsRes.aiDebug };
+      const det = await detectAIEndpoints({ ports: { lmstudio: [DEFAULTS?.lmstudio?.port || 8000, 8080], ollama: [DEFAULTS?.ollama?.port || 11434] }, config });
       const available = det.find(d => d.healthy);
       if (available) {
         chrome.storage.local.get(['settings'], (res) => {
@@ -147,9 +149,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.local.get(['settings'], async (res) => {
           const s = res?.settings || {};
           if (!s.aiEnabled) return sendResponse({ success: false, error: 'AI disabled' });
+          const cfg = { timeoutMs: s.aiTimeout || 1000, retries: s.aiRetries || 2, backoff: s.aiBackoff || 1.3, verbose: !!s.aiDebug };
           // perform a health check using ai-connector
-          const health = await checkAIHealth({ type: s.aiType || 'ollama', port: s.aiPort });
-          sendResponse({ success: true, data: { aiAvailable: !!health.healthy, type: health.type, port: health.port, endpoint: health.endpoint } });
+          const health = await checkAIHealth({ type: s.aiType || 'ollama', port: s.aiPort, config: cfg });
+          sendResponse({ success: true, data: { aiAvailable: !!health.healthy, type: health.type, port: health.port, endpoint: health.endpoint, results: health.results || [] } });
         });
         return true;
       }
