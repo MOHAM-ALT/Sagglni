@@ -110,6 +110,17 @@ ollama serve
 - Load a model
 - Start the local server (default port 8000)
 
+### Batching & Performance
+
+- The extension supports batching of low-confidence fields when calling the local LLM to reduce the number of network requests and token usage.
+- Settings available in the popup/settings UI:
+   - `aiBatchSize` - number of fields per LLM request (default 10)
+   - `aiOnlyLowConfidence` - only analyze low-confidence fields (default true)
+   - `aiLowConfidenceThreshold` - threshold for what is considered low-confidence (default 0.7)
+   - `aiConcise` - request concise prompts for token-efficient responses
+
+See `tests/benchmark.test.js` and `BENCHMARK_RESULTS.md` for example benchmark results comparing different batch sizes.
+
 ## 🔐 Privacy & Security
 
 - ✅ All data stored locally in Chrome storage
