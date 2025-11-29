@@ -232,3 +232,5 @@ label input {
 /* small adjustments for modal input elements */
 .modal input[type="date"], .modal input[type="number"], .modal textarea { font-size: 13px; }
 
+.field-ai-badge { display: inline-block; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 6px; font-size: 12px; margin-left: 8px; vertical-align: middle; }
+

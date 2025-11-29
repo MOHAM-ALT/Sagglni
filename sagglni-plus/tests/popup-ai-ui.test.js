@@ -23,6 +23,12 @@ describe('Popup AI UI', () => {
         cb({ success: true, data: {} });
       }
     }) } };
+    // require validation helper to ensure parseProfileJSON is defined
+    const val = require('../src/popup/validation.js');
+    window.parseProfileJSON = val.parseProfileJSON;
+    global.parseProfileJSON = val.parseProfileJSON;
+    window.validateProfileWithSchema = val.validateProfileWithSchema;
+    global.validateProfileWithSchema = val.validateProfileWithSchema;
     // load popup.js (it sets up event listeners on DOMContentLoaded)
     require('../src/popup/popup.js');
     // JSDOM may have already fired DOMContentLoaded; dispatch to ensure listeners are set
@@ -114,6 +120,29 @@ describe('Popup AI UI', () => {
       expect(saveCall).toBeTruthy();
       const settingsArg = saveCall[0].settings;
       expect(settingsArg.aiConsent).toBe(true);
+      done();
+    }, 50);
+  });
+
+  test('displays AI badges in modal editor when parsed with aiFieldMap', (done) => {
+    const aiJsonArea = document.getElementById('aiJson');
+    const profileRaw = JSON.stringify({ name: 'Test', data: { personalInfo: { firstName: 'John', lastName: 'Doe', email: 'john@example.com', phone: '+966555' } }, aiFieldMap: { firstName: true } });
+    aiJsonArea.value = profileRaw;
+    const parseBtn = document.getElementById('parseJsonBtn');
+    parseBtn.click();
+    setTimeout(() => {
+      const modal = document.getElementById('profileModal');
+      expect(modal).toBeTruthy();
+      // debug: print profileErrors
+      // eslint-disable-next-line no-console
+      console.log('profileErrors:', document.getElementById('profileErrors')?.textContent);
+      expect(modal.style.display).not.toBe('none');
+      const badge = document.querySelector('#firstName + .field-ai-badge');
+      // debug: print html around firstName
+      // eslint-disable-next-line no-console
+      console.log('firstName html:', document.getElementById('firstName')?.outerHTML);
+      expect(badge).toBeTruthy();
+      expect(badge.textContent).toContain('AI');
       done();
     }, 50);
   });

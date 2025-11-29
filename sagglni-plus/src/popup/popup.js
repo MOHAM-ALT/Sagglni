@@ -466,7 +466,7 @@ function closeProfileModal() {
   modal.style.display = 'none';
 }
 
-function fillModalFieldsFromObject(profile) {
+function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
   document.getElementById('profileName').value = profile.name || '';
   const pi = profile.data?.personalInfo || {};
   document.getElementById('firstName').value = pi.firstName || '';
@@ -478,6 +478,8 @@ function fillModalFieldsFromObject(profile) {
   document.getElementById('nationality').value = pi.nationality || '';
   document.getElementById('city').value = pi.city || '';
   document.getElementById('postalCode').value = pi.postalCode || '';
+  // clear any existing ai badges
+  document.querySelectorAll('.field-ai-badge').forEach(b => b.remove());
   // education
   const education = profile.data?.education || [];
   document.getElementById('educationList').innerHTML = '';
@@ -505,6 +507,17 @@ function fillModalFieldsFromObject(profile) {
   document.getElementById('employmentTypes').value = (pref.employmentTypes || []).join(', ');
   // Show modal
   openProfileModal();
+
+  // attach ai badges for fields that were AI sourced
+  Object.keys(aiFieldMap || {}).forEach(fn => {
+    const el = document.querySelector(`#${fn}`);
+    if (el) {
+      const badge = document.createElement('span');
+      badge.className = 'field-ai-badge ai-badge';
+      badge.textContent = '🤖 AI';
+      el.parentNode.insertBefore(badge, el.nextSibling);
+    }
+  });
 }
 
 /* parseProfileJson moved below (updated implementation) */
@@ -544,7 +557,8 @@ async function parseProfileJson() {
       errorsDiv.className = 'status status-error';
       return;
     }
-    fillModalFieldsFromObject(profile);
+    const aiFieldMap = parsed.aiFieldMap || parsed.meta?.aiFieldMap || {};
+    fillModalFieldsFromObject(profile, aiFieldMap);
     const modal = document.getElementById('profileModal');
     if (modal?.dataset?.editingId) delete modal.dataset.editingId;
     errorsDiv.textContent = 'Parsed successfully. You may edit values and Save.';
