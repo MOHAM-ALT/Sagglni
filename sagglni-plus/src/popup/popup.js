@@ -525,7 +525,7 @@ function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
 
 function generatePrompt() {
   const profile = gatherModalProfileData();
-  const prompt = buildInterviewPrompt(profile);
+  const prompt = buildInterviewPrompt(profile, { modelType: window.settings?.aiType || 'default', concise: true });
   document.getElementById('generatedPrompt').value = prompt;
 }
 

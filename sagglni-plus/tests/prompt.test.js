@@ -9,4 +9,12 @@ describe('Prompt Generator', () => {
     expect(prompt).toContain('Email: john@example.com');
     expect(prompt).toContain('Phone: +966555');
   });
+
+  test('builds a concise LM Studio prompt for local models', () => {
+    const profile = { data: { personalInfo: { firstName: 'Jane', lastName: 'Roe', email: 'jane@ex.com', phone: '+96111' }, skills: { technical: ['js','node','react'] } } };
+    const prompt = buildInterviewPrompt(profile, { modelType: 'lmstudio', concise: true });
+    expect(prompt).toContain('Output between markers');
+    // concise prompt should not contain long repeated instructions
+    expect(prompt.length).toBeLessThan(600);
+  });
 });
