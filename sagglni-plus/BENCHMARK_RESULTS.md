@@ -2,7 +2,7 @@
 
 {
   "nonBatch": {
-    "durationMs": 1630,
+    "durationMs": 1641,
     "suggestions": 20,
     "requests": 20,
     "estimatedPromptChars": 2360
