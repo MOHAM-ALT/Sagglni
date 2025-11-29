@@ -9,6 +9,10 @@
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
     "test": "jest --detectOpenHandles",
+    "benchmark": "jest tests/benchmark.test.js --verbose",
+    "test:lm": "LM_STUDIO_URL=http://localhost:8000 jest tests/lm-studio-e2e.test.js",
+    "test:all": "jest --coverage",
+    "test:watch": "jest --watch",
     "test:e2e": "jest tests/e2e.test.js --runInBand",
     "lint": "eslint src/",
     "watch": "node scripts/watch.js"

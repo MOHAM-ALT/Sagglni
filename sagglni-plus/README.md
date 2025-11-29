@@ -135,6 +135,22 @@ See `tests/benchmark.test.js` and `BENCHMARK_RESULTS.md` for example benchmark r
 npm test
 ```
 
+### Useful NPM scripts
+
+```bash
+# Run the benchmark test (batch vs non-batch)
+npm run benchmark
+
+# Run LM Studio E2E tests using local LM Studio on default port
+npm run test:lm
+
+# Run the whole test suite with coverage
+npm run test:all
+
+# Run Jest watch mode
+npm run test:watch
+```
+
 ## 📝 License
 
 MIT License - see LICENSE file for details
