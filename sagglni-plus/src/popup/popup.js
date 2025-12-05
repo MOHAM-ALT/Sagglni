@@ -58,9 +58,28 @@ function toggleAiPref(fieldName, accept, btnAccept, btnReject) {
       try {
         chrome.runtime.sendMessage({ action: 'getSettings' }, (resp) => {
           if (!resp || !resp.success) return resolve({});
-          window.settings = resp.data || {};
-          window.aiFieldPreferences = resp.data?.aiFieldPreferences || {};
-          resolve(resp.data || {});
+          const settings = resp.data || {};
+          window.settings = settings;
+          window.aiFieldPreferences = settings.aiFieldPreferences || {};
+          
+          // Load AI settings into UI
+          const aiEnabled = document.getElementById('aiEnabled');
+          if (aiEnabled) {
+            aiEnabled.checked = !!settings.aiEnabled;
+            const aiSettings = document.getElementById('aiSettings');
+            if (aiSettings) aiSettings.style.display = settings.aiEnabled ? 'block' : 'none';
+          }
+          
+          const aiEngineType = document.getElementById('aiEngineType');
+          if (aiEngineType) aiEngineType.value = settings.aiEngineType || 'ollama';
+          
+          const aiCustomHost = document.getElementById('aiCustomHost');
+          if (aiCustomHost) aiCustomHost.value = settings.aiCustomHost || '';
+          
+          const aiCustomPort = document.getElementById('aiCustomPort');
+          if (aiCustomPort) aiCustomPort.value = settings.aiCustomPort || '';
+          
+          resolve(settings || {});
         });
       } catch (e) { resolve({}); }
     });
@@ -847,37 +866,78 @@ function openSettings() {
 
 function toggleAISettings() {
   const aiSettings = document.getElementById('aiSettings');
-  if (document.getElementById('aiEnabled').checked) {
+  const aiEnabled = document.getElementById('aiEnabled').checked;
+  if (aiEnabled) {
     aiSettings.style.display = 'block';
+    // Load settings from storage
+    chrome.runtime.sendMessage({ action: 'getSettings' }, (resp) => {
+      if (resp && resp.success) {
+        const settings = resp.data || {};
+        document.getElementById('aiEngineType').value = settings.aiEngineType || 'ollama';
+        document.getElementById('aiCustomHost').value = settings.aiCustomHost || '';
+        document.getElementById('aiCustomPort').value = settings.aiCustomPort || '';
+      }
+    });
   } else {
     aiSettings.style.display = 'none';
   }
 }
 
 function testAIConnection() {
-  const aiType = document.getElementById('aiType').value;
-  const aiPort = parseInt(document.getElementById('aiPort').value) || 11434;
+  const aiEngineType = document.getElementById('aiEngineType').value;
+  const aiCustomHost = document.getElementById('aiCustomHost').value || '';
+  const aiCustomPort = document.getElementById('aiCustomPort').value || '';
   const statusDiv = document.getElementById('aiStatus');
   const testBtn = document.getElementById('testAIBtn');
-  if (testBtn) { testBtn.disabled = true; testBtn.classList.add('loading'); }
-  statusDiv.textContent = 'Testing...';
-  chrome.runtime.sendMessage({ action: 'testAI' }, (resp) => {
-    if (!resp || !resp.success) {
-      statusDiv.textContent = 'AI not available';
-      statusDiv.className = 'status status-error';
-      if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
-      return;
+  const hostError = document.getElementById('popupHostError');
+  const portError = document.getElementById('popupPortError');
+  
+  // Clear previous errors
+  hostError.style.display = 'none';
+  portError.style.display = 'none';
+
+  // Save settings first
+  const settings = {
+    aiEnabled: true,
+    aiEngineType,
+    aiCustomHost: aiCustomHost.trim(),
+    aiCustomPort: aiCustomPort.trim()
+  };
+  
+  // Load all current settings
+  chrome.runtime.sendMessage({ action: 'getSettings' }, (resp) => {
+    if (resp && resp.success) {
+      const allSettings = Object.assign({}, resp.data || {}, settings);
+      
+      if (testBtn) { testBtn.disabled = true; testBtn.classList.add('loading'); }
+      statusDiv.textContent = '🔄 Testing connection...';
+      statusDiv.className = 'status status-info';
+      statusDiv.style.display = 'block';
+      
+      // Save settings and test
+      chrome.runtime.sendMessage({ action: 'saveSettings', settings: allSettings }, (saveResp) => {
+        // Now test
+        chrome.runtime.sendMessage({ action: 'testAI' }, (resp) => {
+          if (!resp || !resp.success) {
+            statusDiv.textContent = '❌ AI not available';
+            statusDiv.className = 'status status-error';
+            if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
+            return;
+          }
+          const d = resp.data || {};
+          if (d.aiAvailable) {
+            const host = d.host || aiCustomHost || 'localhost';
+            const port = d.port || aiCustomPort || 11434;
+            statusDiv.textContent = `✅ ${d.type || aiEngineType} @ ${host}:${port} - Connected!`;
+            statusDiv.className = 'status status-success';
+          } else {
+            statusDiv.textContent = '❌ AI not available. Check host and port.';
+            statusDiv.className = 'status status-error';
+          }
+          if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
+        });
+      });
     }
-    const d = resp.data || {};
-    if (d.aiAvailable) {
-      statusDiv.textContent = `${d.type || aiType} @ ${d.port || aiPort} OK`;
-      statusDiv.className = 'status status-success';
-    } else {
-      statusDiv.textContent = 'AI not available';
-      statusDiv.className = 'status status-error';
-      if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
-    }
-    if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
   });
 }
 
