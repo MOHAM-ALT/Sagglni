@@ -639,29 +639,59 @@ async function parseProfileJson() {
   const raw = document.getElementById('aiJson').value;
   const errorsDiv = document.getElementById('profileErrors');
   errorsDiv.textContent = '';
+  errorsDiv.className = '';
+
+  // Check if input is empty
+  if (!raw || raw.trim().length === 0) {
+    errorsDiv.textContent = '⚠️ Please paste JSON data in the textarea above';
+    errorsDiv.className = 'status status-error';
+    return;
+  }
+
   try {
+    // Parse the JSON
     const parsed = parseProfileJSON(raw);
+    
+    // Ensure we have a proper profile structure
     const profile = parsed.id && parsed.data ? parsed : { data: parsed };
+
+    // Validate against schema
     const sv = validateProfileWithSchema(profile);
+    
     if (!sv.isValid) {
       const messages = sv.errors || [];
+      
+      // Add AJV error messages if available
       if (sv.ajvErrors && sv.ajvErrors.length > 0) {
-        const ajvMsgs = sv.ajvErrors.map(e => `${e.instancePath.replace(/\//g, '.') || e.params.missingProperty || 'field'} ${e.message}`);
+        const ajvMsgs = sv.ajvErrors.map(e => {
+          const path = (e.instancePath || '').replace(/\//g, '.') || e.params?.missingProperty || 'field';
+          return `${path}: ${e.message}`;
+        });
         messages.push(...ajvMsgs);
         showAjvErrors(sv.ajvErrors);
       }
-      errorsDiv.textContent = messages.join('; ');
+
+      errorsDiv.textContent = '❌ Validation failed: ' + messages.join('; ');
       errorsDiv.className = 'status status-error';
       return;
     }
+
+    // Success: populate the form fields
     const aiFieldMap = parsed.aiFieldMap || parsed.meta?.aiFieldMap || {};
     fillModalFieldsFromObject(profile, aiFieldMap);
+    
+    // Clear editing ID if this is a new import
     const modal = document.getElementById('profileModal');
     if (modal?.dataset?.editingId) delete modal.dataset.editingId;
-    errorsDiv.textContent = 'Parsed successfully. You may edit values and Save.';
+    
+    errorsDiv.textContent = '✅ JSON parsed successfully! You can now edit values and save the profile.';
     errorsDiv.className = 'status status-success';
+    
+    // Scroll to show the success message
+    errorsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
   } catch (err) {
-    errorsDiv.textContent = err.message || 'Invalid JSON';
+    errorsDiv.textContent = '❌ Error: ' + (err.message || 'Invalid JSON');
     errorsDiv.className = 'status status-error';
   }
 }

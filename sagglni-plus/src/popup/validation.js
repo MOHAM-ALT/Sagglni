@@ -23,17 +23,44 @@ function stripMarkers(raw) {
 
 /**
  * Parse a JSON string; throws an Error on invalid JSON
+ * Handles markers and error cases gracefully
  * @param {string} raw
  * @returns {Object}
  */
 function parseProfileJSON(raw) {
+  if (!raw || typeof raw !== 'string') {
+    throw new Error('Invalid input: expected a JSON string');
+  }
+
   const cleaned = stripMarkers(raw);
+  
+  // Check if cleaned string is empty
+  if (!cleaned || cleaned.trim().length === 0) {
+    throw new Error('JSON input is empty. Please paste valid JSON data.');
+  }
+
   try {
     const parsed = JSON.parse(cleaned);
+    
+    // Validate that parsed result is an object
+    if (typeof parsed !== 'object' || parsed === null) {
+      throw new Error('JSON must be an object, not ' + typeof parsed);
+    }
+    
     return parsed;
   } catch (err) {
-    // try to guess if user pasted invalid JSON (like single quotes), provide more info
-    throw new Error('Invalid JSON format. Please ensure the data is valid JSON and includes the required fields.');
+    // Provide helpful error messages based on the error
+    if (err instanceof SyntaxError) {
+      const match = err.message.match(/position (\d+)/);
+      if (match) {
+        const pos = parseInt(match[1]);
+        const preview = cleaned.substring(Math.max(0, pos - 20), Math.min(cleaned.length, pos + 20));
+        throw new Error(`JSON syntax error near: "${preview}". Please check JSON format and use double quotes for keys and strings.`);
+      }
+      throw new Error('Invalid JSON format. Please ensure all strings use double quotes, not single quotes. ' + err.message);
+    }
+    // Fallback error message
+    throw new Error('Invalid JSON format. Please ensure the data is valid JSON and includes the required fields. ' + (err.message || ''));
   }
 }
 
