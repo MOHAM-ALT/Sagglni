@@ -20,13 +20,13 @@
         <select id="profileSelect">
           <option value="">Select Profile...</option>
         </select>
-          <button id="newProfileBtn" class="btn btn-primary">+ New Profile</button>
+          <button id="newProfileBtn" class="btn btn-primary" aria-label="New Profile">+ New Profile</button>
           <button id="editProfileBtn" class="btn btn-info" disabled>Edit</button>
       </div>
 
       <!-- Action Buttons -->
       <div class="section">
-        <button id="autoFillBtn" class="btn btn-success" disabled>
+        <button id="autoFillBtn" class="btn btn-success" disabled aria-label="Auto Fill Form">
           🚀 Auto Fill Form
         </button>
         <button id="analyzeBtn" class="btn btn-info">
@@ -65,8 +65,8 @@
     </div>
 
     <div class="footer">
-      <button id="settingsBtn" class="btn btn-small">⚙️ Settings</button>
-      <button id="helpBtn" class="btn btn-small">❓ Help</button>
+      <button id="settingsBtn" class="btn btn-small" aria-label="Open settings">⚙️ Settings</button>
+      <button id="helpBtn" class="btn btn-small" aria-label="Open help">❓ Help</button>
       <div style="margin-top:8px; font-size:12px; color:#888;">
         <a id="privacyLink" href="https://github.com/MOHAM-ALT/Sagglni/blob/main/PRIVACY_POLICY.md" target="_blank">Privacy Policy</a>
         &nbsp;|&nbsp;
@@ -179,7 +179,7 @@
             <button id="parseJsonBtn" type="button" class="btn btn-primary">Parse & Validate JSON</button>
             <button id="generatePromptBtn" type="button" class="btn btn-info">Generate Prompt</button>
             <button id="copyPromptBtn" type="button" class="btn btn-success">Copy Prompt</button>
-            <button id="saveProfileBtn" type="button" class="btn btn-success">Save Profile</button>
+            <button id="saveProfileBtn" type="button" class="btn btn-success" aria-label="Save Profile">Save Profile</button>
             <button id="cancelProfileBtn" type="button" class="btn btn-secondary">Cancel</button>
           </div>
           <div id="profileErrors" class="status"></div>

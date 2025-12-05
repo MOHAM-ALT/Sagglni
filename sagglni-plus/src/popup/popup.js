@@ -164,6 +164,79 @@ function setupProfileModalUI() {
   });
 
   // inline validation helpers will be defined outside
+  // Add inline validation listeners for personal info inputs
+  const inlineFields = ['#firstName', '#lastName', '#email', '#phone'];
+  inlineFields.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.addEventListener('input', () => validateSingleField(sel));
+  });
+}
+
+/* Inline validation helpers: valid state */
+function setFieldValid(selector, message) {
+  try {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    clearFieldError(selector);
+    el.classList.add('field-valid');
+    let span = el.nextElementSibling;
+    if (span && span.classList && span.classList.contains('input-success')) {
+      span.textContent = message || 'Looks good';
+    } else {
+      span = document.createElement('div');
+      span.className = 'input-success';
+      span.textContent = message || 'Looks good';
+      span.style.color = '#48bb78';
+      span.style.fontSize = '12px';
+      span.style.marginTop = '4px';
+      el.parentNode.insertBefore(span, el.nextSibling);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function clearFieldValid(selector) {
+  try {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.classList.remove('field-valid');
+    const next = el.nextElementSibling;
+    if (next && next.classList && next.classList.contains('input-success')) next.remove();
+  } catch (e) { /* ignore */ }
+}
+
+function validateSingleField(selector) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  const id = el.id;
+  const val = el.value || '';
+  // Clear any prior success/error for immediate start
+  clearFieldError(selector);
+  clearFieldValid(selector);
+  if (id === 'email') {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!val || !emailRegex.test(val.trim())) {
+      setFieldError(selector, 'Invalid email address');
+      return false;
+    }
+    setFieldValid(selector, 'Valid email');
+    return true;
+  }
+  if (id === 'phone') {
+    if (!val || !/^[+\d\s-()]+$/.test(val.trim())) {
+      setFieldError(selector, 'Invalid phone number');
+      return false;
+    }
+    setFieldValid(selector, 'Valid phone');
+    return true;
+  }
+  // default: not empty
+  if (!val || val.trim().length === 0) {
+    setFieldError(selector, 'This field is required');
+    return false;
+  }
+  setFieldValid(selector, 'Looks good');
+  return true;
 }
 
 /* Inline field error handling */
@@ -354,61 +427,73 @@ async function autoFill() {
 }
 
 function analyzeForm() {
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  if (analyzeBtn) { analyzeBtn.disabled = true; analyzeBtn.classList.add('loading'); }
   showStatus('Analyzing form...', 'loading');
   const aiEnabled = document.getElementById('aiEnabled')?.checked;
   // If AI is enabled but user hasn't consented, show consent modal
   if (aiEnabled && !(window.settings && window.settings.aiConsent === true)) {
     showAiConsentModal();
     showStatus('Awaiting AI consent…', 'info');
+    if (analyzeBtn) { analyzeBtn.disabled = false; analyzeBtn.classList.remove('loading'); }
     return;
   }
+
   chrome.runtime.sendMessage({ action: 'analyzeForm' }, (response) => {
-    const aiResultDiv = document.getElementById('aiAnalysisResult');
-    const aiFieldsList = document.getElementById('aiFieldsList');
-    if (response && response.success) {
-      const count = response.fieldCount || (response.data && response.data.fields && response.data.fields.length) || 0;
-      showStatus(`Found ${count} fields on this page`, 'success');
-      const aiUsed = response.aiUsed || (response.data && response.data.aiUsed);
-      if (aiUsed) {
-        aiFieldsList.innerHTML = '';
-        const fields = (response.data && response.data.fields) || response.fields || [];
-        fields.forEach(f => {
-          if (f.aiSuggested || f.aiConfidence) {
-            const r = document.createElement('div');
-            r.className = 'ai-field-row';
-            const pref = (window.aiFieldPreferences && window.aiFieldPreferences[f.name]) ? window.aiFieldPreferences[f.name] : null;
-            r.innerHTML = `<b>${escapeHtml(f.name || f.label || '')}</b> — Detected: ${escapeHtml(f.detectedType || '')} (${(f.detectionConfidence||0).toFixed(2)}) ${f.aiSuggested ? '<span class="ai-suggest">• AI: ' + escapeHtml(f.aiSuggested) + ' (' + (f.aiConfidence||0).toFixed(2) + ')</span>' : ''}`;
-            // add accept / reject buttons
-            const btnAccept = document.createElement('button');
-            btnAccept.className = 'btn btn-small ai-accept';
-            btnAccept.textContent = pref === true ? 'Accepted' : 'Accept';
-            if (pref === true) btnAccept.classList.add('accepted');
-            const btnReject = document.createElement('button');
-            btnReject.className = 'btn btn-small ai-reject';
-            btnReject.textContent = pref === false ? 'Rejected' : 'Reject';
-            if (pref === false) btnReject.classList.add('rejected');
-            btnAccept.addEventListener('click', () => toggleAiPref(f.name, true, btnAccept, btnReject));
-            btnReject.addEventListener('click', () => toggleAiPref(f.name, false, btnAccept, btnReject));
-            const wrapper = document.createElement('div');
-            wrapper.style.display = 'flex';
-            wrapper.style.gap = '8px';
-            wrapper.appendChild(btnAccept);
-            wrapper.appendChild(btnReject);
-            const container = document.createElement('div');
-            container.style.display = 'flex';
-            container.style.justifyContent = 'space-between';
-            container.appendChild(r);
-            container.appendChild(wrapper);
-            aiFieldsList.appendChild(container);
-          }
-        });
-        aiResultDiv.style.display = 'block';
-        // if first time use, ensure aiFieldPreferences exists locally
-        window.aiFieldPreferences = window.aiFieldPreferences || {};
+    try {
+      const aiResultDiv = document.getElementById('aiAnalysisResult');
+      const aiFieldsList = document.getElementById('aiFieldsList');
+      if (response && response.success) {
+        const count = response.fieldCount || (response.data && response.data.fields && response.data.fields.length) || 0;
+        showStatus(`Found ${count} fields on this page`, 'success');
+        const aiUsed = response.aiUsed || (response.data && response.data.aiUsed);
+        if (aiUsed) {
+          aiFieldsList.innerHTML = '';
+          const fields = (response.data && response.data.fields) || response.fields || [];
+          fields.forEach(f => {
+            if (f.aiSuggested || f.aiConfidence) {
+              const r = document.createElement('div');
+              r.className = 'ai-field-row';
+              const pref = (window.aiFieldPreferences && window.aiFieldPreferences[f.name]) ? window.aiFieldPreferences[f.name] : null;
+              r.innerHTML = `<b>${escapeHtml(f.name || f.label || '')}</b> — Detected: ${escapeHtml(f.detectedType || '')} (${(f.detectionConfidence||0).toFixed(2)}) ${f.aiSuggested ? '<span class="ai-suggest">• AI: ' + escapeHtml(f.aiSuggested) + ' (' + (f.aiConfidence||0).toFixed(2) + ')</span>' : ''}`;
+              // add accept / reject buttons
+              const btnAccept = document.createElement('button');
+              btnAccept.className = 'btn btn-small ai-accept';
+              btnAccept.textContent = pref === true ? 'Accepted' : 'Accept';
+              if (pref === true) btnAccept.classList.add('accepted');
+              const btnReject = document.createElement('button');
+              btnReject.className = 'btn btn-small ai-reject';
+              btnReject.textContent = pref === false ? 'Rejected' : 'Reject';
+              if (pref === false) btnReject.classList.add('rejected');
+              btnAccept.addEventListener('click', () => toggleAiPref(f.name, true, btnAccept, btnReject));
+              btnReject.addEventListener('click', () => toggleAiPref(f.name, false, btnAccept, btnReject));
+              const wrapper = document.createElement('div');
+              wrapper.style.display = 'flex';
+              wrapper.style.gap = '8px';
+              wrapper.appendChild(btnAccept);
+              wrapper.appendChild(btnReject);
+              const container = document.createElement('div');
+              container.style.display = 'flex';
+              container.style.justifyContent = 'space-between';
+              container.appendChild(r);
+              container.appendChild(wrapper);
+              aiFieldsList.appendChild(container);
+            }
+          });
+          aiResultDiv.style.display = 'block';
+          // if first time use, ensure aiFieldPreferences exists locally
+          window.aiFieldPreferences = window.aiFieldPreferences || {};
+        } else {
+          aiResultDiv.style.display = 'none';
+        }
       } else {
-        aiResultDiv.style.display = 'none';
+        showStatus('Failed to analyze form', 'error');
       }
-    } else showStatus('Failed to analyze form', 'error');
+    } catch (e) {
+      showStatus('Failed to analyze form', 'error');
+    } finally {
+      if (analyzeBtn) { analyzeBtn.disabled = false; analyzeBtn.classList.remove('loading'); }
+    }
   });
 }
 
@@ -459,6 +544,14 @@ function openProfileModal() {
   // ensure there's at least one education/experience entry available
   if (document.getElementById('educationList') && document.getElementById('educationList').children.length === 0) addEducationItem();
   if (document.getElementById('experienceList') && document.getElementById('experienceList').children.length === 0) addExperienceItem();
+  // focus the first input for accessibility
+  setTimeout(() => { try { const el = document.getElementById('firstName'); if (el) el.focus(); } catch (e) { console.warn('Failed to focus modal input', e && e.message); } }, 50);
+  // add Escape key handler to close modal
+  const escHandler = (e) => { if (e.key === 'Escape') closeProfileModal(); };
+  document.addEventListener('keydown', escHandler);
+  // remove handler when closing
+  const removeHandler = () => { document.removeEventListener('keydown', escHandler); modal.removeEventListener('transitionend', removeHandler); };
+  if (modal) modal.addEventListener('transitionend', removeHandler);
 }
 
 function closeProfileModal() {
@@ -480,6 +573,8 @@ function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
   document.getElementById('postalCode').value = pi.postalCode || '';
   // clear any existing ai badges
   document.querySelectorAll('.field-ai-badge').forEach(b => b.remove());
+  // clear previous AI suggested visual markers
+  document.querySelectorAll('.ai-suggested').forEach(e => e.classList.remove('ai-suggested'));
   // education
   const education = profile.data?.education || [];
   document.getElementById('educationList').innerHTML = '';
@@ -516,6 +611,8 @@ function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
       badge.className = 'field-ai-badge ai-badge';
       badge.textContent = '🤖 AI';
       el.parentNode.insertBefore(badge, el.nextSibling);
+      // mark fields visually as AI-suggested
+      el.classList.add('ai-suggested');
     }
   });
 }
@@ -695,11 +792,14 @@ function testAIConnection() {
   const aiType = document.getElementById('aiType').value;
   const aiPort = parseInt(document.getElementById('aiPort').value) || 11434;
   const statusDiv = document.getElementById('aiStatus');
+  const testBtn = document.getElementById('testAIBtn');
+  if (testBtn) { testBtn.disabled = true; testBtn.classList.add('loading'); }
   statusDiv.textContent = 'Testing...';
   chrome.runtime.sendMessage({ action: 'testAI' }, (resp) => {
     if (!resp || !resp.success) {
       statusDiv.textContent = 'AI not available';
       statusDiv.className = 'status status-error';
+      if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
       return;
     }
     const d = resp.data || {};
@@ -709,7 +809,9 @@ function testAIConnection() {
     } else {
       statusDiv.textContent = 'AI not available';
       statusDiv.className = 'status status-error';
+      if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
     }
+    if (testBtn) { testBtn.disabled = false; testBtn.classList.remove('loading'); }
   });
 }
 

@@ -8,18 +8,21 @@ chrome.runtime.onInstalled.addListener(() => {
   // Initialize default storage if not set
   chrome.storage.local.get(['profiles', 'settings'], (res) => {
   if (!res.profiles) chrome.storage.local.set({ profiles: [] });
-  if (!res.settings) chrome.storage.local.set({ settings: { aiEnabled: false, aiPort: 11434, autoDetectAI: true, aiOnlyLowConfidence: true, aiLowConfidenceThreshold: 0.7, aiConcise: false, aiBatchSize: 10 } });
+  if (!res.settings) chrome.storage.local.set({ settings: { aiEnabled: false, aiEngineType: 'ollama', aiCustomHost: '', aiCustomPort: '', autoDetectAI: true, aiOnlyLowConfidence: true, aiLowConfidenceThreshold: 0.7, aiConcise: false, aiBatchSize: 10 } });
   });
   // Attempt to auto-detect local AI backends and update settings if found
   (async () => {
     try {
       const settingsRes = await new Promise((resolve) => chrome.storage.local.get(['settings'], (r) => resolve(r?.settings || {})));
       const config = { timeoutMs: 1000, retries: 2, backoff: 1.3, verbose: !!settingsRes.aiDebug };
-      const det = await detectAIEndpoints({ ports: { lmstudio: [DEFAULTS?.lmstudio?.port || 8000, 8080], ollama: [DEFAULTS?.ollama?.port || 11434] }, config });
+      // If custom host is set, use it; otherwise try localhost
+      const customHost = settingsRes.aiCustomHost;
+      const customPort = settingsRes.aiCustomPort ? parseInt(settingsRes.aiCustomPort) : null;
+      const det = await detectAIEndpoints({ customHost, customPort, ports: { lmstudio: [DEFAULTS?.lmstudio?.port || 8000, 8080], ollama: [DEFAULTS?.ollama?.port || 11434] }, config });
       const available = det.find(d => d.healthy);
       if (available) {
         chrome.storage.local.get(['settings'], (res) => {
-          const s = Object.assign({}, res?.settings || {}, { aiEnabled: true, aiPort: available.port, aiType: available.type });
+          const s = Object.assign({}, res?.settings || {}, { aiEnabled: true, aiEngineType: available.type, aiCustomHost: available.host || '', aiCustomPort: available.port || '' });
           chrome.storage.local.set({ settings: s });
         });
       }
@@ -76,10 +79,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const { formHtml, fields } = request || {};
         (async () => {
           try {
-            const AIClass = require('../transformer/ai-transformer');
-            const aiClient = new AIClass({ type: 'ollama', port: (request.port || 11434) });
-            // incorporate user/provided settings (batch size, low confidence thresholds)
+            // Load settings to get custom AI host/port
             const settings = await new Promise((resolve) => chrome.storage.local.get(['settings'], (r) => resolve(r?.settings || {})));
+            const AIClass = require('../transformer/ai-transformer');
+            const aiHost = settings.aiCustomHost || 'localhost';
+            const aiPort = settings.aiCustomPort ? parseInt(settings.aiCustomPort) : (settings.aiEngineType === 'lmstudio' ? 8000 : 11434);
+            const aiClient = new AIClass({ type: settings.aiEngineType || 'ollama', host: aiHost, port: aiPort });
+            
             const context = Object.assign({}, request.pageInfo || {}, {
               batchSize: request.batchSize || settings.aiBatchSize || aiClient.batchSize,
               onlyLowConfidence: typeof request.onlyLowConfidence === 'boolean' ? request.onlyLowConfidence : (typeof settings.aiOnlyLowConfidence === 'boolean' ? settings.aiOnlyLowConfidence : aiClient.onlyLowConfidence),
@@ -158,9 +164,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const s = res?.settings || {};
           if (!s.aiEnabled) return sendResponse({ success: false, error: 'AI disabled' });
           const cfg = { timeoutMs: s.aiTimeout || 1000, retries: s.aiRetries || 2, backoff: s.aiBackoff || 1.3, verbose: !!s.aiDebug };
-          // perform a health check using ai-connector
-          const health = await checkAIHealth({ type: s.aiType || 'ollama', port: s.aiPort, config: cfg });
-          sendResponse({ success: true, data: { aiAvailable: !!health.healthy, type: health.type, port: health.port, endpoint: health.endpoint, results: health.results || [] } });
+          // perform a health check using ai-connector with custom host/port
+          const aiHost = s.aiCustomHost || 'localhost';
+          const aiPort = s.aiCustomPort ? parseInt(s.aiCustomPort) : (s.aiEngineType === 'lmstudio' ? 8000 : 11434);
+          const health = await checkAIHealth({ type: s.aiEngineType || 'ollama', host: aiHost, port: aiPort, config: cfg });
+          sendResponse({ success: true, data: { aiAvailable: !!health.healthy, type: health.type, host: health.host, port: health.port, endpoint: health.endpoint, results: health.results || [] } });
         });
         return true;
       }

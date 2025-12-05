@@ -1,5 +1,6 @@
 /**
  * Lightweight AI connector utilities for local LLM detection & health checks
+ * Supports custom host/port configuration for remote AI servers
  */
 const DEFAULTS = {
   ollama: { port: 11434 },
@@ -41,68 +42,84 @@ async function probeUrl(url, { timeout = DEFAULT_CONFIG.timeoutMs, retries = DEF
   return { ok: false, error: lastErr };
 }
 
-async function checkOllama(port = DEFAULTS.ollama.port, config = DEFAULT_CONFIG) {
-  const base = `http://localhost:${port}`;
+async function checkOllama(host = 'localhost', port = DEFAULTS.ollama.port, config = DEFAULT_CONFIG) {
+  const base = `http://${host}:${port}`;
   const endpoints = ['/v1/models', '/v1/engines', '/v1/health', '/'];
   const results = [];
   for (const ep of endpoints) {
-    // probeUrl returns object {ok, status}
     const r = await probeUrl(`${base}${ep}`, config);
     results.push({ endpoint: `${base}${ep}`, ...r });
-    if (r && r.ok) return { type: 'ollama', port, healthy: true, endpoint: `${base}${ep}`, results };
+    if (r && r.ok) return { type: 'ollama', host, port, healthy: true, endpoint: `${base}${ep}`, results };
   }
-  return { type: 'ollama', port, healthy: false, results };
+  return { type: 'ollama', host, port, healthy: false, results };
 }
 
-async function checkLMStudio(port = DEFAULTS.lmstudio.port, config = DEFAULT_CONFIG) {
+async function checkLMStudio(host = 'localhost', port = DEFAULTS.lmstudio.port, config = DEFAULT_CONFIG) {
   // LM Studio health endpoints may vary; try common ones
-  const base = `http://localhost:${port}`;
+  const base = `http://${host}:${port}`;
   const endpoints = ['/api/health', '/api/status', '/health', '/status', '/api/v1/health', '/'];
   const results = [];
   for (const ep of endpoints) {
     const r = await probeUrl(`${base}${ep}`, config);
     results.push({ endpoint: `${base}${ep}`, ...r });
-    if (r && r.ok) return { type: 'lmstudio', port, healthy: true, endpoint: `${base}${ep}`, results };
+    if (r && r.ok) return { type: 'lmstudio', host, port, healthy: true, endpoint: `${base}${ep}`, results };
   }
-  return { type: 'lmstudio', port, healthy: false, results };
+  return { type: 'lmstudio', host, port, healthy: false, results };
 }
 
 async function detectAIEndpoints(options = {}) {
-  // options: { ports: {ollama:[...], lmstudio:[...] }, config }
+  // options: { customHost, customPort, ports: {ollama:[...], lmstudio:[...] }, config }
   const config = Object.assign({}, DEFAULT_CONFIG, options.config || {});
   const results = [];
-  // Allowed ports arrays for detection
+
+  // If custom host/port provided, try those first
+  if (options.customHost) {
+    const host = options.customHost;
+    const port = options.customPort || DEFAULTS.lmstudio.port;
+    if (config.verbose) console.log(`Detecting AI at custom host: ${host}:${port}`);
+    try {
+      const r = await checkLMStudio(host, port, config);
+      results.push(r);
+      if (r.healthy) return results; // Return immediately if custom host is healthy
+    } catch (err) {
+      if (config.verbose) console.warn('checkLMStudio custom host error', err && err.message ? err.message : err);
+      results.push({ type: 'lmstudio', host, port, healthy: false, error: err });
+    }
+  }
+
+  // Allowed ports arrays for localhost detection
   const ollamaPorts = (options.ports && options.ports.ollama) || [DEFAULTS.ollama.port];
   const lmPorts = (options.ports && options.ports.lmstudio) || [DEFAULTS.lmstudio.port];
-  // scan ollama ports
+
+  // scan ollama ports on localhost
   for (const p of ollamaPorts) {
     try {
-      const r = await checkOllama(p, config);
+      const r = await checkOllama('localhost', p, config);
       results.push(r);
       if (r.healthy) break;
     } catch (err) {
       if (config.verbose) console.warn('checkOllama scan error', err && err.message ? err.message : err);
-      results.push({ type: 'ollama', port: p, healthy: false, error: err });
+      results.push({ type: 'ollama', host: 'localhost', port: p, healthy: false, error: err });
     }
   }
-  // scan LM Studio ports
+  // scan LM Studio ports on localhost
   for (const p of lmPorts) {
     try {
-      const r = await checkLMStudio(p, config);
+      const r = await checkLMStudio('localhost', p, config);
       results.push(r);
       if (r.healthy) break;
     } catch (err) {
       if (config.verbose) console.warn('checkLMStudio scan error', err && err.message ? err.message : err);
-      results.push({ type: 'lmstudio', port: p, healthy: false, error: err });
+      results.push({ type: 'lmstudio', host: 'localhost', port: p, healthy: false, error: err });
     }
   }
   return results;
 }
 
-async function checkAIHealth({ type = 'ollama', port, config } = {}) {
+async function checkAIHealth({ type = 'ollama', host = 'localhost', port, config } = {}) {
   const cfg = Object.assign({}, DEFAULT_CONFIG, config || {});
-  if (type === 'lmstudio') return checkLMStudio(port || DEFAULTS.lmstudio.port, cfg);
-  return checkOllama(port || DEFAULTS.ollama.port, cfg);
+  if (type === 'lmstudio') return checkLMStudio(host, port || DEFAULTS.lmstudio.port, cfg);
+  return checkOllama(host, port || DEFAULTS.ollama.port, cfg);
 }
 
 module.exports = { detectAIEndpoints, checkAIHealth, DEFAULTS, DEFAULT_CONFIG };
