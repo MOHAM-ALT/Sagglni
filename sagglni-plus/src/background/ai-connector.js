@@ -2,6 +2,22 @@
  * Lightweight AI connector utilities for local LLM detection & health checks
  * Supports custom host/port configuration for remote AI servers
  */
+
+// Import logger if available
+let logger;
+try {
+  const loggerModule = require('../utils/logger');
+  logger = loggerModule.logger;
+} catch (e) {
+  logger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    logAIConnection: () => {}
+  };
+}
+
 const DEFAULTS = {
   ollama: { port: 11434 },
   lmstudio: { port: 8000 }
@@ -46,11 +62,17 @@ async function checkOllama(host = 'localhost', port = DEFAULTS.ollama.port, conf
   const base = `http://${host}:${port}`;
   const endpoints = ['/v1/models', '/v1/engines', '/v1/health', '/'];
   const results = [];
+  logger.debug(`Checking Ollama at ${host}:${port}`, { endpoints });
+  
   for (const ep of endpoints) {
     const r = await probeUrl(`${base}${ep}`, config);
     results.push({ endpoint: `${base}${ep}`, ...r });
-    if (r && r.ok) return { type: 'ollama', host, port, healthy: true, endpoint: `${base}${ep}`, results };
+    if (r && r.ok) {
+      logger.logAIConnection(host, port, 'ollama', r);
+      return { type: 'ollama', host, port, healthy: true, endpoint: `${base}${ep}`, results };
+    }
   }
+  logger.warn(`Ollama not available at ${host}:${port}`, { results });
   return { type: 'ollama', host, port, healthy: false, results };
 }
 
@@ -59,11 +81,17 @@ async function checkLMStudio(host = 'localhost', port = DEFAULTS.lmstudio.port, 
   const base = `http://${host}:${port}`;
   const endpoints = ['/api/health', '/api/status', '/health', '/status', '/api/v1/health', '/'];
   const results = [];
+  logger.debug(`Checking LM Studio at ${host}:${port}`, { endpoints });
+  
   for (const ep of endpoints) {
     const r = await probeUrl(`${base}${ep}`, config);
     results.push({ endpoint: `${base}${ep}`, ...r });
-    if (r && r.ok) return { type: 'lmstudio', host, port, healthy: true, endpoint: `${base}${ep}`, results };
+    if (r && r.ok) {
+      logger.logAIConnection(host, port, 'lmstudio', r);
+      return { type: 'lmstudio', host, port, healthy: true, endpoint: `${base}${ep}`, results };
+    }
   }
+  logger.warn(`LM Studio not available at ${host}:${port}`, { results });
   return { type: 'lmstudio', host, port, healthy: false, results };
 }
 

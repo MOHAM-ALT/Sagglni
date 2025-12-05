@@ -2,6 +2,23 @@
 console.log('Sagglni Plus Background Service Worker Loaded');
 const { detectAIEndpoints, checkAIHealth, DEFAULTS } = require('./ai-connector');
 
+// Import logger
+let logger;
+try {
+  const loggerModule = require('../utils/logger');
+  logger = loggerModule.logger;
+} catch (e) {
+  logger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    logProfileOperation: () => {},
+    logFormAnalysis: () => {},
+    logJSONParse: () => {}
+  };
+}
+
 /** Initialize default data on installation */
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Sagglni Plus installed!');
@@ -44,8 +61,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const now = new Date().toISOString();
           if (existingIndex >= 0) {
             profiles[existingIndex] = Object.assign({}, profiles[existingIndex], { ...request.profile, updatedAt: now });
+            logger.logProfileOperation('update', request.profile.id, true, { name: request.profile.name });
           } else {
             profiles.push(Object.assign({ id: request.profile.id || `profile-${Date.now()}`, createdAt: now, updatedAt: now, version: '1.0' }, request.profile));
+            logger.logProfileOperation('create', request.profile.id, true, { name: request.profile.name });
           }
           chrome.storage.local.set({ profiles }, () => sendResponse({ success: true, data: request.profile }));
         });
@@ -176,6 +195,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return sendResponse({ success: false, error: 'Unknown action' });
     }
   } catch (err) {
+    logger.error('Background error', { action: request.action, error: err.message, stack: err.stack });
     console.error('Background error:', err);
     sendResponse({ success: false, error: err.message });
   }
