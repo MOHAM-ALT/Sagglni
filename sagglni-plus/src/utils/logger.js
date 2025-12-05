@@ -45,12 +45,22 @@ class Logger {
    * Log a message at the specified level
    */
   log(level, message, data) {
-    if (!this.debugMode && level < LogLevels.WARN) return; // Skip debug/info if not in debug mode
+    // Skip debug/info if not in debug mode (only skip for console, always store if enabled)
+    const shouldLog = this.debugMode || level >= LogLevels.WARN;
+    
+    if (!shouldLog && this.enableConsole) {
+      // Don't log to console, but might still store
+      if (this.enableStorage) {
+        const formattedMessage = this.formatMessage(level, message, data);
+        this.storeLog(level, message, data, formattedMessage);
+      }
+      return;
+    }
 
     const formattedMessage = this.formatMessage(level, message, data);
 
     // Log to console
-    if (this.enableConsole) {
+    if (this.enableConsole && shouldLog) {
       const consoleLevel = this.getConsoleLevel(level);
       console[consoleLevel](formattedMessage);
     }
@@ -78,6 +88,11 @@ class Logger {
    * Store log to chrome.storage.local
    */
   storeLog(level, message, data, formattedMessage) {
+    // Skip storage in test environment if chrome is not available
+    if (typeof chrome === 'undefined' || !chrome.storage) {
+      return;
+    }
+
     chrome.storage.local.get(['logs'], (result) => {
       const logs = result?.logs || [];
       logs.push({
@@ -170,6 +185,11 @@ class Logger {
    */
   async getLogs(filter = {}) {
     return new Promise((resolve) => {
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        resolve([]);
+        return;
+      }
+
       chrome.storage.local.get(['logs'], (result) => {
         let logs = result?.logs || [];
 
@@ -203,6 +223,9 @@ class Logger {
    * Clear logs from storage
    */
   clearLogs() {
+    if (typeof chrome === 'undefined' || !chrome.storage) {
+      return;
+    }
     chrome.storage.local.set({ logs: [] });
   }
 

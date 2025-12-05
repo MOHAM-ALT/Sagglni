@@ -42,9 +42,9 @@ function parseProfileJSON(raw) {
   try {
     const parsed = JSON.parse(cleaned);
     
-    // Validate that parsed result is an object
-    if (typeof parsed !== 'object' || parsed === null) {
-      throw new Error('JSON must be an object, not ' + typeof parsed);
+    // Validate that parsed result is an object (not an array)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('JSON must be an object, not ' + (Array.isArray(parsed) ? 'array' : typeof parsed));
     }
     
     return parsed;

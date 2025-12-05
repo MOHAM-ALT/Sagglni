@@ -2,13 +2,13 @@
 
 {
   "nonBatch": {
-    "durationMs": 1638,
+    "durationMs": 1623,
     "suggestions": 20,
     "requests": 20,
     "estimatedPromptChars": 2360
   },
   "batch": {
-    "durationMs": 163,
+    "durationMs": 162,
     "suggestions": 20,
     "requests": 2,
     "estimatedPromptChars": 236
