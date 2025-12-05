@@ -622,16 +622,52 @@ function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
 
 function generatePrompt() {
   const profile = gatherModalProfileData();
-  const prompt = buildInterviewPrompt(profile, { modelType: window.settings?.aiType || 'default', concise: true });
-  document.getElementById('generatedPrompt').value = prompt;
+  const modelType = window.settings?.aiEngineType || 'ollama';
+  const prompt = buildInterviewPrompt(profile, { 
+    modelType: modelType === 'lmstudio' ? 'lmstudio' : 'default',
+    concise: false 
+  });
+  const textarea = document.getElementById('generatedPrompt');
+  if (textarea) {
+    textarea.value = prompt;
+    textarea.focus();
+    showStatus('✅ Interview prompt generated! Copy to clipboard to use with ChatGPT, Claude, or other AI.', 'success');
+  }
 }
 
 function copyPromptToClipboard() {
-  const t = document.getElementById('generatedPrompt');
-  if (!t) return;
-  t.select();
-  document.execCommand('copy');
-  showStatus('Prompt copied to clipboard', 'success');
+  const textarea = document.getElementById('generatedPrompt');
+  if (!textarea || !textarea.value) {
+    showStatus('⚠️ No prompt to copy. Generate a prompt first.', 'error');
+    return;
+  }
+  
+  // Use modern Clipboard API if available, fallback to older method
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(textarea.value)
+      .then(() => {
+        showStatus('✅ Prompt copied to clipboard! Paste it into ChatGPT, Claude, or your favorite AI.', 'success');
+      })
+      .catch(() => {
+        // Fallback to old method
+        fallbackCopyToClipboard(textarea);
+      });
+  } else {
+    fallbackCopyToClipboard(textarea);
+  }
+}
+
+function fallbackCopyToClipboard(textarea) {
+  try {
+    textarea.select();
+    if (document.execCommand('copy')) {
+      showStatus('✅ Prompt copied to clipboard! Paste it into ChatGPT, Claude, or your favorite AI.', 'success');
+    } else {
+      showStatus('❌ Failed to copy prompt. Try selecting and copying manually.', 'error');
+    }
+  } catch (err) {
+    showStatus('❌ Failed to copy prompt. Try selecting and copying manually.', 'error');
+  }
 }
 
 async function parseProfileJson() {
