@@ -915,7 +915,7 @@ function testAIConnection() {
       statusDiv.style.display = 'block';
       
       // Save settings and test
-      chrome.runtime.sendMessage({ action: 'saveSettings', settings: allSettings }, (saveResp) => {
+      chrome.runtime.sendMessage({ action: 'saveSettings', settings: allSettings }, () => {
         // Now test
         chrome.runtime.sendMessage({ action: 'testAI' }, (resp) => {
           if (!resp || !resp.success) {
