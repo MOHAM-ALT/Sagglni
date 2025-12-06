@@ -172,7 +172,79 @@ function analyzeCurrentForm() {
   // Attach form info heuristics: attempt to find job title/company on page
   const pageTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content') || document.title || '';
   const company = document.querySelector('meta[name="company"]')?.getAttribute('content') || '';
+  // Attempt to detect site-specific form structure and augment analysis
+  try {
+    const detector = detectSiteSpecificForms(window.location.hostname || window.location.host);
+    if (detector && typeof detector === 'function') {
+      const augment = detector();
+      if (augment && Array.isArray(augment.fields)) {
+        augment.fields.forEach(aug => {
+          const idx = analysis.fields.findIndex(f => f.name === aug.name || f.selector === aug.selector);
+          if (idx >= 0) {
+            analysis.fields[idx] = Object.assign({}, analysis.fields[idx], aug);
+          } else {
+            analysis.fields.push(aug);
+          }
+        });
+      }
+    }
+  } catch (e) { console.warn('Detector error', e); }
+
   return { ...analysis, formInfo: { pageTitle, company }, durationMs };
+}
+
+/**
+ * Return a detector function for known domains. Each detector returns an object with fields array
+ * describing common fields and selectors.
+ */
+function detectSiteSpecificForms(hostname) {
+  if (!hostname) return null;
+  hostname = hostname.toLowerCase();
+  if (hostname.includes('linkedin.com')) return detectLinkedIn;
+  if (hostname.includes('bayt.com')) return detectBayt;
+  if (hostname.includes('indeed.com')) return detectIndeed;
+  if (hostname.includes('wuzzuf.net')) return detectWuzzuf;
+  return null;
+}
+
+function detectLinkedIn() {
+  return {
+    fields: [
+      { name: 'firstName', selector: 'input[name=firstName]' },
+      { name: 'lastName', selector: 'input[name=lastName]' },
+      { name: 'email', selector: 'input[name=email]' }
+    ]
+  };
+}
+
+function detectBayt() {
+  return {
+    fields: [
+      { name: 'firstName', selector: 'input[id*=first]' },
+      { name: 'lastName', selector: 'input[id*=last]' },
+      { name: 'email', selector: 'input[type=email]' }
+    ]
+  };
+}
+
+function detectIndeed() {
+  return {
+    fields: [
+      { name: 'firstName', selector: 'input[name=first_name]' },
+      { name: 'lastName', selector: 'input[name=last_name]' },
+      { name: 'email', selector: 'input[id*=email]' }
+    ]
+  };
+}
+
+function detectWuzzuf() {
+  return {
+    fields: [
+      { name: 'firstName', selector: 'input[name=firstName]'},
+      { name: 'lastName', selector: 'input[name=lastName]'},
+      { name: 'email', selector: 'input[type=email]'}
+    ]
+  };
 }
 
 // Removed unused getAllFormFields; analyzer handles collection

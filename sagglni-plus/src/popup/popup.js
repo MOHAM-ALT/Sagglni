@@ -3,14 +3,161 @@
 
 console.log('Sagglni Plus Popup Loaded');
 const { buildInterviewPrompt } = require('./prompt-generator');
+const StorageManager = require('../storage/storage-manager');
+const storage = new StorageManager();
+const hasDOM = (typeof document !== 'undefined' && typeof window !== 'undefined');
 
-// Load profiles on startup
-document.addEventListener('DOMContentLoaded', async () => {
+// Toast helper: shows a top-right toast '✅ تم الحفظ' for 2 seconds
+function showSavedToast(message = '✅ تم الحفظ') {
+  if (typeof document === 'undefined') return; // guard for test/node environments
+  let toast = document.getElementById('savedToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'savedToast';
+    toast.className = 'toast';
+    toast.innerHTML = `<span>${message}</span>`;
+    document.body.appendChild(toast);
+  } else {
+    toast.textContent = message;
+  }
+  toast.classList.remove('hide');
+  toast.classList.add('show');
+  // auto hide after 2s
+  setTimeout(() => {
+    toast.classList.remove('show');
+    toast.classList.add('hide');
+  }, 2000);
+}
+
+// Small autosave indicator helpers
+function setAutosaveState(state) {
+  if (typeof document === 'undefined') return; // no-op when running in non-DOM test environment
+  const el = document.getElementById('autosaveIndicator');
+  if (!el) return;
+  el.classList.remove('saving', 'saved');
+  if (state === 'saving') el.classList.add('saving');
+  if (state === 'saved') el.classList.add('saved');
+}
+
+// Debounce/autosave state
+let autosaveTimer = null;
+let lastSavedDraftId = null;
+function scheduleAutosave(delay = 1000) {
+  if (typeof document === 'undefined') return; // avoid scheduling autosave when no DOM is present (tests)
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  setAutosaveState('saving');
+  autosaveTimer = setTimeout(async () => {
+    try {
+      const data = collectFormData();
+      const url = await getActiveTabUrl();
+      const filledCount = countFilledFields(data);
+      const draft = { id: lastSavedDraftId || undefined, url, data, filledCount, timestamp: new Date().toISOString() };
+      // Save draft always as the autosave mechanism. Also save every 5 filled fields as requested by spec.
+      const saved = await storage.saveDraft(draft);
+      lastSavedDraftId = saved.id;
+      // update last used (guard document access; use try/catch because DOM may vanish between scheduling and execution)
+      try {
+        let profileId = null;
+        if (typeof document !== 'undefined') profileId = (document.getElementById('profileSelect')?.value || null);
+        await storage.saveLastUsed({ url, profileId });
+      } catch (e) { /* ignore DOM timing issues */ }
+      if (typeof document !== 'undefined') setAutosaveState('saved');
+      // show silent toast briefly
+      if (typeof document !== 'undefined') showSavedToast('✅ تم الحفظ');
+    } catch (err) {
+      console.warn('Autosave failed', err);
+      if (typeof document !== 'undefined') setAutosaveState(null);
+    }
+  }, delay);
+}
+
+function collectFormData() {
+  if (typeof document === 'undefined') return {};
+  const form = document.getElementById('profileForm');
+  if (!form) return {};
+  const data = {};
+  const inputs = form.querySelectorAll('input, textarea, select');
+  inputs.forEach(i => {
+    const id = i.id || i.name || null;
+    if (!id) return;
+    if (i.type === 'checkbox') data[id] = !!i.checked;
+    else data[id] = i.value;
+  });
+  // collect list items like skills
+  data.technicalSkills = Array.from(document.getElementById('technicalSkills')?.querySelectorAll('.tag-text') || []).map(n => n.textContent);
+  data.softSkills = Array.from(document.getElementById('softSkills')?.querySelectorAll('.tag-text') || []).map(n => n.textContent);
+  // education/experience/languages could be serialized simply
+  data.education = Array.from(document.querySelectorAll('#educationList .education-item')).map(node => ({
+    degree: node.querySelector('.edu-degree')?.value || '',
+    field: node.querySelector('.edu-field')?.value || '',
+    university: node.querySelector('.edu-university')?.value || ''
+  }));
+  data.experience = Array.from(document.querySelectorAll('#experienceList .experience-item')).map(node => ({
+    jobTitle: node.querySelector('.exp-jobTitle')?.value || '',
+    company: node.querySelector('.exp-company')?.value || ''
+  }));
+  data.languages = Array.from(document.querySelectorAll('#languagesList .language-item')).map(node => ({
+    language: node.querySelector('.lang-name')?.value || '',
+    level: node.querySelector('.lang-level')?.value || ''
+  }));
+  return data;
+}
+
+function countFilledFields(data) {
+  if (!data || typeof data !== 'object') return 0;
+  let count = 0;
+  Object.keys(data).forEach(k => {
+    const v = data[k];
+    if (Array.isArray(v)) {
+      if (v.length > 0) count += v.filter(x => x && (typeof x === 'string' ? x.trim().length > 0 : true)).length;
+    } else if (v !== null && v !== undefined && String(v).trim().length > 0) count++;
+  });
+  return count;
+}
+
+async function getActiveTabUrl() {
+  return new Promise((resolve) => {
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const url = (tabs && tabs[0] && tabs[0].url) ? tabs[0].url : null;
+        resolve(url);
+      });
+    } catch (e) { resolve(null); }
+  });
+}
+
+// Load profiles on startup (only if DOM is available)
+if (hasDOM) {
+  document.addEventListener('DOMContentLoaded', async () => {
   await loadProfiles();
   await loadSettings();
   setupEventListeners();
   setupProfileModalUI();
-});
+  // Suggest restore if last used profile exists for this URL
+  try {
+    const url = await getActiveTabUrl();
+    const last = await storage.getLastUsed();
+    if (last && last.url && url && url.includes(new URL(last.url).host)) {
+      // show suggestion
+      const statusDiv = document.getElementById('status');
+      if (statusDiv) {
+        statusDiv.innerHTML = `هل تريد استخدام الملف الذي استخدمته سابقاً على هذا الموقع؟ <button id="useLastProfileBtn" class="btn btn-small btn-info">استخدام الملف السابق</button>`;
+        const btn = document.getElementById('useLastProfileBtn');
+        if (btn) btn.addEventListener('click', async () => {
+          try {
+            const p = await storage.getProfile(last.profileId);
+            if (p) {
+              fillModalFieldsFromObject(p);
+              openProfileModal();
+              showStatus('تم تحميل الملف السابق', 'success');
+            } else showStatus('لم يتم العثور على الملف السابق', 'error');
+          } catch (err) { showStatus('خطأ في استعادة الملف', 'error'); }
+        });
+      }
+    }
+  } catch (e) { /* ignore URL parse errors */ }
+  });
+}
 
 async function loadProfiles() {
   const select = document.getElementById('profileSelect');
@@ -190,6 +337,15 @@ function setupProfileModalUI() {
     if (!el) return;
     el.addEventListener('input', () => validateSingleField(sel));
   });
+  // Attach autosave listeners to all inputs/textareas/selects in the profile form
+  const profileForm = document.getElementById('profileForm');
+  if (profileForm) {
+    const elems = profileForm.querySelectorAll('input, textarea, select');
+    elems.forEach(el => {
+      el.addEventListener('input', () => scheduleAutosave(1000));
+      el.addEventListener('change', () => scheduleAutosave(1000));
+    });
+  }
 }
 
 /* Inline validation helpers: valid state */
@@ -353,6 +509,8 @@ function addSkillTag(type, value) {
   tag.innerHTML = `<span class="tag-text">${escapeHtml(value)}</span><button class="remove-btn" title="Remove">x</button>`;
   tag.querySelector('.remove-btn').addEventListener('click', () => tag.remove());
   container.appendChild(tag);
+  // schedule autosave after adding tag
+  scheduleAutosave(1000);
 }
 
 function addEducationItem(data) {
@@ -375,6 +533,8 @@ function addEducationItem(data) {
   }
   clone.querySelector('.removeEducationBtn').addEventListener('click', () => clone.remove());
   container.appendChild(clone);
+  // autosave
+  scheduleAutosave(1000);
 }
 
 function addExperienceItem(data) {
@@ -394,6 +554,8 @@ function addExperienceItem(data) {
   }
   clone.querySelector('.removeExperienceBtn').addEventListener('click', () => clone.remove());
   container.appendChild(clone);
+  // autosave
+  scheduleAutosave(1000);
 }
 
 function addLanguageItem(data) {
@@ -409,6 +571,8 @@ function addLanguageItem(data) {
   }
   clone.querySelector('.removeLanguageBtn').addEventListener('click', () => clone.remove());
   container.appendChild(clone);
+  // autosave
+  scheduleAutosave(1000);
 }
 
 function escapeHtml(s) {
@@ -422,14 +586,22 @@ async function autoFill() {
     showStatus('Please select a profile first!', 'error');
     return;
   }
-  showStatus('Filling form...', 'loading');
+  showStatus('⏳ جاري الملء...', 'loading');
+  let progressInterval = null;
+  let simulatedCount = 0;
+  progressInterval = setInterval(() => {
+    simulatedCount += 1;
+    showStatus(`📝 جاري الملء... (${simulatedCount})`, 'info');
+    if (simulatedCount > 6) simulatedCount = 0;
+  }, 600);
   chrome.runtime.sendMessage({ action: 'autoFill', profileId }, (resp) => {
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
     if (resp && resp.success) {
       const total = resp.data?.totalFields || 0;
       const filled = resp.data?.filledCount || resp.data?.filledFields || 0;
       const skipped = resp.data?.skippedCount || 0;
       const failed = resp.data?.failedCount || 0;
-      showStatus(`Filled ${filled}/${total} fields ✅` + (skipped ? ` • Skipped: ${skipped}` : '') + (failed ? ` • Failed: ${failed}` : ''), 'success');
+      showStatus(`📝 ملأت ${filled}/${total} حقل ✅` + (skipped ? ` • تم تجاهل: ${skipped}` : '') + (failed ? ` • فشلت: ${failed}` : ''), 'success');
       // Optionally show details in the profile errors area
       const detail = document.getElementById('profileErrors');
       if (resp.data?.details && resp.data.details.length > 0) {
@@ -440,7 +612,7 @@ async function autoFill() {
       }
       loadHistory();
     } else {
-      showStatus(`Error filling form: ${resp?.error || 'unknown'}`, 'error');
+      showStatus(`خطأ أثناء الملء: ${resp?.error || 'غير معروف'}`, 'error');
     }
   });
 }
@@ -622,6 +794,9 @@ function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
   // Show modal
   openProfileModal();
 
+  // Load drafts list when opening modal
+  loadDraftsList();
+
   // attach ai badges for fields that were AI sourced
   Object.keys(aiFieldMap || {}).forEach(fn => {
     const el = document.querySelector(`#${fn}`);
@@ -634,6 +809,49 @@ function fillModalFieldsFromObject(profile, aiFieldMap = {}) {
       el.classList.add('ai-suggested');
     }
   });
+}
+
+async function loadDraftsList() {
+  try {
+    const drafts = await storage.getDrafts();
+    const list = document.getElementById('draftsList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!drafts || drafts.length === 0) {
+      list.innerHTML = '<div style="color:#666;">لا توجد مسودات محفوظة.</div>';
+      return;
+    }
+    drafts.forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      const date = new Date(d.createdAt || d.timestamp || Date.now()).toLocaleString();
+      row.innerHTML = `<div><b>${escapeHtml(d.url || 'Untitled')}</b></div><div style="font-size:12px;color:#666;">${date} • ${Object.keys(d.data||{}).length} حقول</div>`;
+      const btns = document.createElement('div');
+      btns.style.marginTop = '6px';
+      const useBtn = document.createElement('button');
+      useBtn.className = 'btn btn-small btn-info';
+      useBtn.textContent = 'استعادة';
+      useBtn.addEventListener('click', () => restoreDraft(d.id));
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-small btn-secondary';
+      delBtn.textContent = 'حذف';
+      delBtn.addEventListener('click', async () => { await storage.deleteDraft(d.id); loadDraftsList(); });
+      btns.appendChild(useBtn); btns.appendChild(delBtn);
+      row.appendChild(btns);
+      list.appendChild(row);
+    });
+  } catch (err) { console.warn('Failed to load drafts', err); }
+}
+
+async function restoreDraft(id) {
+  try {
+    const drafts = await storage.getDrafts();
+    const d = drafts.find(x => x.id === id);
+    if (!d) return showStatus('Draft not found', 'error');
+    // populate form from draft
+    fillModalFieldsFromObject({ name: d.data.profileName || '', data: { personalInfo: d.data } }, {});
+    showStatus('تم استعادة المسودة', 'success');
+  } catch (err) { console.warn('restoreDraft error', err); showStatus('خطأ في استعادة المسودة', 'error'); }
 }
 
 /* parseProfileJson moved below (updated implementation) */
@@ -775,7 +993,16 @@ async function saveProfileFromModal() {
   showStatus('Saving profile...', 'loading');
   chrome.runtime.sendMessage({ action: 'saveProfile', profile }, (resp) => {
     if (resp?.success) {
-      showStatus('Profile saved ✅', 'success');
+      showStatus('تم حفظ الملف ✅', 'success');
+      // show toast confirmation
+      showSavedToast('✅ تم الحفظ');
+      // Save last used info
+      (async () => {
+        try {
+          const url = await getActiveTabUrl();
+          await storage.saveLastUsed({ url, profileId: profile.id || resp?.data?.id || null });
+        } catch (e) { /* ignore */ }
+      })();
       closeProfileModal();
       loadProfiles();
     } else {

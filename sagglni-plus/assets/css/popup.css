@@ -238,3 +238,72 @@ label input {
 .field-ai-badge { display: inline-block; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 6px; font-size: 12px; margin-left: 8px; vertical-align: middle; }
 .ai-suggested { box-shadow: 0 0 0 3px rgba(255,193,7,0.08); border-radius: 4px; }
 
+/* Toast notification (top-right) */
+.toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  z-index: 99999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  transform-origin: top right;
+  opacity: 0;
+}
+
+.toast.show {
+  animation: toast-in 0.25s ease forwards;
+}
+.toast.hide {
+  animation: toast-out 0.25s ease forwards;
+}
+
+@keyframes toast-in {
+  from { transform: translateY(-10px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes toast-out {
+  from { transform: translateY(0) scale(1); opacity: 1; }
+  to { transform: translateY(-8px) scale(0.98); opacity: 0; }
+}
+
+/* Small autosave indicator shown near Save button or modal header */
+.autosave-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ccc;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.autosave-indicator.saving { background: #4299e1; box-shadow: 0 0 6px rgba(66,153,225,0.6); }
+.autosave-indicator.saved { background: #48bb78; box-shadow: 0 0 6px rgba(72,187,120,0.6); }
+
+/* Tooltip helper */
+[data-tooltip] { position: relative; }
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 99999;
+}
+
+/* Arabic-friendly color mapping for status */
+.status-success { background: #c6f6d5; color: #22543d; }
+.status-error { background: #fed7d7; color: #742a2a; }
+.status-info { background: #ebf8ff; color: #20536b; }
+

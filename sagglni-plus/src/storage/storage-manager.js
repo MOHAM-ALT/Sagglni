@@ -12,7 +12,9 @@ class StorageManager {
       profiles: 'profiles',
       applicationHistory: 'applicationHistory',
       settings: 'settings',
-      metadata: 'metadata'
+      metadata: 'metadata',
+      drafts: 'drafts',
+      lastUsed: 'lastUsed'
     };
   }
 
@@ -286,6 +288,81 @@ class StorageManager {
    */
   _generateId(prefix = '') {
     return `${prefix}${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`;
+  }
+
+  /* ------------------------- Drafts Management ------------------------- */
+  /**
+   * Save or update a draft. Draft object should include: url, data, timestamp, filledCount
+   * Returns saved draft
+   */
+  async saveDraft(draft) {
+    if (!draft || typeof draft !== 'object') throw new Error('Invalid draft');
+    const res = await this._get(this.keys.drafts);
+    const drafts = res?.drafts || [];
+    const now = Date.now();
+    // If it has id, update; otherwise create
+    if (draft.id) {
+      const idx = drafts.findIndex(d => d.id === draft.id);
+      if (idx >= 0) {
+        drafts[idx] = Object.assign({}, drafts[idx], draft, { updatedAt: now });
+      } else {
+        drafts.unshift(Object.assign({ id: this._generateId('draft-'), createdAt: now, updatedAt: now }, draft));
+      }
+    } else {
+      drafts.unshift(Object.assign({ id: this._generateId('draft-'), createdAt: now, updatedAt: now }, draft));
+    }
+    // prune old drafts: keep only 50 most recent
+    const MAX = 50;
+    if (drafts.length > MAX) drafts.length = MAX;
+    await this._set({ drafts });
+    return drafts[0];
+  }
+
+  /**
+   * Get all drafts
+   */
+  async getDrafts() {
+    const res = await this._get(this.keys.drafts);
+    const drafts = res?.drafts || [];
+    // filter out expired (older than 30 days)
+    const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30;
+    const now = Date.now();
+    const filtered = drafts.filter(d => !d.createdAt || (now - new Date(d.createdAt).getTime()) <= THIRTY_DAYS_MS);
+    if (filtered.length !== drafts.length) await this._set({ drafts: filtered });
+    return filtered;
+  }
+
+  /**
+   * Delete a draft by id
+   */
+  async deleteDraft(id) {
+    const res = await this._get(this.keys.drafts);
+    let drafts = res?.drafts || [];
+    drafts = drafts.filter(d => d.id !== id);
+    await this._set({ drafts });
+    return true;
+  }
+
+  /**
+   * Get drafts by URL
+   */
+  async getDraftsByUrl(url) {
+    const drafts = await this.getDrafts();
+    if (!url) return drafts;
+    return drafts.filter(d => d.url === url);
+  }
+
+  /* ------------------------- Last Used Tracking ------------------------- */
+  async saveLastUsed(info) {
+    // info: { url, profileId }
+    const payload = Object.assign({ updatedAt: new Date().toISOString() }, info || {});
+    await this._set({ lastUsed: payload });
+    return payload;
+  }
+
+  async getLastUsed() {
+    const res = await this._get('lastUsed');
+    return res?.lastUsed || null;
   }
 }
 
